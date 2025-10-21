@@ -8,7 +8,7 @@ const HomePage = () => (
     {/* Hero Section */}
     <div className="bg-neutral-900 text-neutral-100 p-8 md:p-16 text-center">
       <div className="max-w-4xl mx-auto">
-        <div className="border-4 border-blue-500 inline-block p-6 md:p-8 mb-6">
+        <div className="inline-block p-6 md:p-8 mb-6">
           <Mountain size={80} className="md:w-32 md:h-32" strokeWidth={3} />
         </div>
         <h1 className="text-4xl md:text-7xl font-black mb-3 uppercase tracking-widest">Welcome To</h1>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Mountain } from 'lucide-react';
+import InteractiveBoard from '../common/InteractiveBoard';
 
 const CreatePage = () => (
   <div className="flex-1 overflow-y-auto pb-20 md:pb-0 p-6 md:p-12 bg-neutral-100">
@@ -9,16 +9,8 @@ const CreatePage = () => (
       </h2>
       
       <div className="grid md:grid-cols-2 gap-8 md:gap-12">
-        {/* Board Placeholder */}
-        <div className="bg-neutral-900 border-4 border-gray-900 aspect-[3/4] flex items-center justify-center">
-          <div className="text-center text-neutral-100">
-            <Mountain size={100} className="mx-auto mb-4 opacity-30" strokeWidth={3} />
-            <p className="text-xl md:text-2xl font-black uppercase tracking-widest">Board Layout</p>
-            <p className="text-sm md:text-base text-neutral-500 font-bold uppercase tracking-wider mt-3">
-              Tap holds to create
-            </p>
-          </div>
-        </div>
+        {/* Interactive Board */}
+        <InteractiveBoard />
 
         {/* Problem Details Form */}
         <div className="space-y-5 md:space-y-6">

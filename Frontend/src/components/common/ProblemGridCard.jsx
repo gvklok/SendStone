@@ -1,10 +1,11 @@
 import React from 'react';
-import { Mountain, Bookmark } from 'lucide-react';
+import { Bookmark } from 'lucide-react';
+import BoardImage from './BoardImage';
 
 const ProblemGridCard = ({ id, grade, sends }) => (
   <div className="bg-white border-2 border-gray-900 overflow-hidden hover:shadow-lg transition-shadow">
-    <div className="bg-neutral-900 aspect-square flex items-center justify-center border-b-2 border-gray-900">
-      <Mountain className="text-neutral-700 opacity-40" size={64} strokeWidth={3} />
+    <div className="bg-neutral-900 aspect-square flex items-center justify-center border-b-2 border-gray-900 p-4">
+      <BoardImage size="small" className="opacity-80" />
     </div>
     <div className="p-4">
       <h4 className="font-black text-sm md:text-base mb-1 text-gray-900 uppercase tracking-wider">
