@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import boardImage from '../../assets/board.png';
 
-const InteractiveBoard = () => {
-  const [holds, setHolds] = useState([]);
+const InteractiveBoard = ({ onHoldsChange, initialHolds = [] }) => {
+  const [holds, setHolds] = useState(initialHolds || []);
+  const [imageMeta, setImageMeta] = useState({ data: null, width: 0, height: 0 });
 
   const holdTypes = {
     0: { color: 'transparent', label: 'None', ring: '' },
@@ -12,14 +13,88 @@ const InteractiveBoard = () => {
     4: { color: 'rgb(239, 68, 68)', label: 'Finish', ring: 'ring-4 ring-red-500' }    // Red
   };
 
+  useEffect(() => {
+    if (initialHolds && initialHolds.length > 0) {
+      setHolds(initialHolds);
+    }
+  }, [initialHolds]);
+
+  useEffect(() => {
+    if (onHoldsChange) {
+      onHoldsChange(holds);
+    }
+  }, [holds, onHoldsChange]);
+
+  // Preload the board image into a hidden canvas so we can find the nearest bright pixel (a hold)
+  useEffect(() => {
+    const img = new Image();
+    img.src = boardImage;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      setImageMeta({ data, width, height });
+    };
+  }, []);
+
+  const findNearestHoldPixel = (px, py) => {
+    const { data, width, height } = imageMeta;
+    if (!data) return null;
+
+    const threshold = 35; // brightness threshold to consider a pixel part of a hold
+    const maxRadius = 50; // px search radius
+    let closest = null;
+    let closestDist = Infinity;
+
+    for (let dy = -maxRadius; dy <= maxRadius; dy++) {
+      const y = py + dy;
+      if (y < 0 || y >= height) continue;
+      for (let dx = -maxRadius; dx <= maxRadius; dx++) {
+        const x = px + dx;
+        if (x < 0 || x >= width) continue;
+        const dist2 = dx * dx + dy * dy;
+        if (dist2 > maxRadius * maxRadius || dist2 >= closestDist) continue;
+        const idx = (y * width + x) * 4;
+        const r = data[idx];
+        const g = data[idx + 1];
+        const b = data[idx + 2];
+        const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        if (luminance > threshold) {
+          closest = { x, y };
+          closestDist = dist2;
+        }
+      }
+    }
+
+    return closest;
+  };
+
   const handleBoardClick = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    const xRatio = (e.clientX - rect.left) / rect.width;
+    const yRatio = (e.clientY - rect.top) / rect.height;
+
+    let xPercent = xRatio * 100;
+    let yPercent = yRatio * 100;
+
+    if (imageMeta.data) {
+      const px = Math.round(xRatio * imageMeta.width);
+      const py = Math.round(yRatio * imageMeta.height);
+      const snapped = findNearestHoldPixel(px, py);
+
+      // If no hold nearby, skip placing the marker
+      if (!snapped) return;
+
+      xPercent = (snapped.x / imageMeta.width) * 100;
+      yPercent = (snapped.y / imageMeta.height) * 100;
+    }
 
     // Check if clicking on existing hold
     const existingHoldIndex = holds.findIndex(
-      hold => Math.abs(hold.x - x) < 3 && Math.abs(hold.y - y) < 3
+      hold => Math.abs(hold.x - xPercent) < 3 && Math.abs(hold.y - yPercent) < 3
     );
 
     if (existingHoldIndex !== -1) {
@@ -37,7 +112,7 @@ const InteractiveBoard = () => {
       setHolds(updatedHolds);
     } else {
       // Add new hold starting with type 1 (Middle/Blue)
-      setHolds([...holds, { x, y, type: 1 }]);
+      setHolds([...holds, { x: xPercent, y: yPercent, type: 1 }]);
     }
   };
 
@@ -75,7 +150,7 @@ const InteractiveBoard = () => {
         {holds.map((hold, index) => (
           <div
             key={index}
-            className={`absolute w-1 h-8 md:w-10 md:h-10 rounded-full border-3 ${holdTypes[hold.type].ring} pointer-events-none transition-all duration-200`}
+            className={`absolute w-8 h-8 md:w-10 md:h-10 rounded-full border-3 ${holdTypes[hold.type].ring} pointer-events-none transition-all duration-200`}
             style={{
               left: `${hold.x}%`,
               top: `${hold.y}%`,

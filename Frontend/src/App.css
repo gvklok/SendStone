@@ -36,3 +36,17 @@
     transform: rotate(360deg);
   }
 }
+
+/* Hero background pan effect */
+.hero-pan {
+  animation: hero-pan 18s linear infinite alternate;
+}
+
+@keyframes hero-pan {
+  0% {
+    background-position: center 0%;
+  }
+  100% {
+    background-position: center 100%;
+  }
+}
