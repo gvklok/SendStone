@@ -239,58 +239,58 @@ class TestRoutesSave:
         assert data["saved"] == False
 
 
-# ============== LIKE/SEND TESTS ==============
+# ============== SEND TESTS (completions) ==============
 
-class TestRoutesLike:
-    """Test like/send endpoints."""
-    
-    def test_like_route(self):
-        """PUT /routes/{id}/send should like a route."""
+class TestRoutesSend:
+    """Test send/unsend endpoints (completions)."""
+
+    def test_send_route(self):
+        """PUT /routes/{id}/send should log a completion."""
         global created_route_id
         if not created_route_id:
             pytest.skip("No route created in previous test")
-        
+
         response = client.put(
             f"/routes/{created_route_id}/send",
             params={"user_id": TEST_USER_ID}
         )
         assert response.status_code == 200
         data = response.json()
-        
-        assert data["liked"] == True
-        assert "likes" in data
-        assert data["likes"] >= 1
-    
-    def test_like_route_duplicate(self):
-        """PUT /routes/{id}/send should handle already liked."""
+
+        assert data["sent"] == True
+        assert "send_count" in data
+        assert data["send_count"] >= 1
+
+    def test_send_route_duplicate(self):
+        """PUT /routes/{id}/send should handle already sent."""
         global created_route_id
         if not created_route_id:
             pytest.skip("No route created in previous test")
-        
-        # Like again - should still return success
+
+        # Send again - should still return success
         response = client.put(
             f"/routes/{created_route_id}/send",
             params={"user_id": TEST_USER_ID}
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["liked"] == True
-    
-    def test_unlike_route(self):
-        """DELETE /routes/{id}/send should unlike a route."""
+        assert data["sent"] == True
+
+    def test_unsend_route(self):
+        """DELETE /routes/{id}/send should remove completion."""
         global created_route_id
         if not created_route_id:
             pytest.skip("No route created in previous test")
-        
+
         response = client.delete(
             f"/routes/{created_route_id}/send",
             params={"user_id": TEST_USER_ID}
         )
         assert response.status_code == 200
         data = response.json()
-        
-        assert data["liked"] == False
-        assert "likes" in data
+
+        assert data["sent"] == False
+        assert "send_count" in data
 
 
 # ============== DELETE ROUTE TESTS ==============
@@ -336,8 +336,8 @@ class TestResponseFormats:
         if data["items"]:
             route = data["items"][0]
             required_fields = [
-                "id", "name", "difficulty", "angle", 
-                "visibility", "likes", "created_at", "holds"
+                "id", "name", "difficulty", "angle",
+                "visibility", "send_count", "created_at", "holds"
             ]
             for field in required_fields:
                 assert field in route, f"Missing field: {field}"
