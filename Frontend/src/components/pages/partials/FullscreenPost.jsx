@@ -1,93 +1,99 @@
 import React from 'react';
-import boardImage from '../../../assets/board.png';
+import { Mountain, Bookmark, Lightbulb, X } from 'lucide-react';
+import BoardPreview from '../../common/BoardPreview';
 
-const holdTypes = {
-  1: { color: 'rgba(5, 103, 232, 1)' },
-  2: { color: 'rgb(34, 197, 94)' },
-  3: { color: 'rgb(234, 179, 8)' },
-  4: { color: 'rgb(239, 68, 68)' },
-};
-
-const FullscreenPost = ({ post, onClose, onSave, onSend, liked = false, saved = false }) => {
+const FullscreenPost = ({ post, onClose, onSave, onSend, onSendToBoard, liked = false, saved = false }) => {
   if (!post) return null;
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center px-4"
+      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
       onClick={onClose}
     >
+      {/* Outer card — let it size from content, cap at 90vh, scroll when needed */}
       <div
-        className="bg-white w-full max-w-5xl max-h-[90vh] overflow-y-auto shadow-2xl relative"
+        className="bg-white w-full max-w-4xl max-h-[92vh] overflow-y-auto shadow-2xl rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-4 py-3 gap-2">
+        {/* Top bar — sticky so it's always visible */}
+        <div className="sticky top-0 z-10 bg-white/90 backdrop-blur flex items-center justify-between px-5 py-3 border-b border-gray-100">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-900 text-white font-bold uppercase tracking-widest"
+            className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+            aria-label="Close"
           >
-            Back
+            <X size={22} strokeWidth={2.5} />
           </button>
           <div className="flex gap-2">
+            {/* Send to Board (LED) */}
             <button
-              onClick={onSend}
-              className={`p-3 rounded-full ${
-                liked ? 'bg-red-500 text-white' : 'bg-gray-900 text-white'
-              }`}
-              aria-label="Add send"
+              onClick={(e) => { e.stopPropagation(); onSendToBoard?.(); }}
+              className="p-2.5 rounded-full bg-gray-100 text-gray-700 hover:bg-amber-100 hover:text-amber-600 transition-colors"
+              aria-label="Send to board"
+              title="Light up on board"
             >
-              ♥
+              <Lightbulb size={20} strokeWidth={2.25} />
             </button>
+            {/* Ascent / Send */}
             <button
-              onClick={onSave}
-              className={`p-3 rounded-full ${
-                saved ? 'bg-blue-500 text-white' : 'bg-gray-900 text-white'
+              onClick={(e) => { e.stopPropagation(); onSend?.(); }}
+              className={`p-2.5 rounded-full transition-colors ${
+                liked
+                  ? 'bg-emerald-500 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-emerald-100 hover:text-emerald-600'
+              }`}
+              aria-label="Log ascent"
+              title="Log ascent"
+            >
+              <Mountain size={20} strokeWidth={2.25} />
+            </button>
+            {/* Save / Bookmark */}
+            <button
+              onClick={(e) => { e.stopPropagation(); onSave?.(); }}
+              className={`p-2.5 rounded-full transition-colors ${
+                saved
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-blue-100 hover:text-blue-600'
               }`}
               aria-label="Save problem"
+              title="Save problem"
             >
-              🔖
+              <Bookmark size={20} strokeWidth={2.25} />
             </button>
           </div>
         </div>
 
-        <div className="md:flex">
-          <div className="md:w-1/2 bg-neutral-900 relative">
-            <img
-              src={boardImage}
-              alt={post.name}
-              className="w-full h-full object-contain"
-            />
-            <div className="absolute inset-0">
-              {post.holds?.map((hold, idx) => (
-                <div
-                  key={idx}
-                  className="absolute w-3.5 h-3.5 md:w-4 md:h-4 rounded-full border border-white/60"
-                  style={{
-                    left: `${hold.x}%`,
-                    top: `${hold.y}%`,
-                    transform: 'translate(-50%, -50%)',
-                    backgroundColor: holdTypes[hold.type]?.color || 'rgba(5,103,232,1)',
-                    opacity: 0.9,
-                  }}
-                />
-              ))}
-            </div>
+        {/* Board — full width, natural 2:3 aspect ratio, no clipping */}
+        <div className="bg-neutral-900">
+          <div className="max-w-md mx-auto">
+            <BoardPreview holds={post.holds || []} className="w-full" />
           </div>
-          <div className="md:w-1/2 p-6 space-y-4">
-            <div className="text-sm font-black uppercase tracking-widest text-gray-600">
-              @{post.authorUsername || 'climber'}
-            </div>
-            <div className="text-2xl md:text-3xl font-black text-gray-900">
-              {post.name || `Problem #${post.id}`}
-            </div>
-            <div className="text-sm font-bold uppercase tracking-wider text-gray-700">
-              Grade: {post.grade}
-            </div>
-            <div className="text-gray-600 text-base leading-relaxed">
-              {post.description || 'No description provided.'}
-            </div>
-            <div className="text-sm font-semibold text-gray-500 uppercase tracking-widest">
-              {post.sends || 0} sends
-            </div>
+        </div>
+
+        {/* Details — below the board */}
+        <div className="p-6 md:p-8 space-y-4">
+          <div className="text-xs font-black uppercase tracking-[0.2em] text-gray-400">
+            @{post.authorUsername || 'climber'}
+          </div>
+          <h2 className="text-2xl md:text-3xl font-black text-gray-900 leading-tight">
+            {post.name || `Problem #${post.id}`}
+          </h2>
+          <div className="flex flex-wrap gap-3">
+            <span className="px-3 py-1 rounded-full bg-gray-900 text-white text-xs font-black uppercase tracking-widest">
+              {post.grade}
+            </span>
+            {post.angle && (
+              <span className="px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-bold uppercase tracking-widest">
+                {post.angle}°
+              </span>
+            )}
+          </div>
+          <p className="text-gray-600 text-base leading-relaxed">
+            {post.description || 'No description provided.'}
+          </p>
+          <div className="flex items-center gap-2 text-sm font-semibold text-gray-500 uppercase tracking-widest">
+            <Mountain size={14} strokeWidth={2.5} />
+            {post.sends || 0} ascents
           </div>
         </div>
       </div>

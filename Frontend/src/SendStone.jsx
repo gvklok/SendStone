@@ -10,6 +10,9 @@ import SavedPage from './components/pages/SavedPage';
 import ProfilePage from './components/pages/ProfilePage';
 import AuthModal from './components/common/AuthModal';
 
+// Kick off background prefetch of popular routes on app boot
+import './routeCache';
+
 export default function ClimbingBoardApp() {
   const [activeTab, setActiveTab] = useState('home');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
