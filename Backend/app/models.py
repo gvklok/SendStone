@@ -5,7 +5,7 @@ Matches the actual Supabase database schema:
 - routes_with_holds: View with holds as JSONB array
 - profiles: User profiles
 - route_holds: Individual holds (separate table)
-- sends: User likes
+- sends: User completions
 - user_saved_routes: Bookmarks
 - attempts, sessions, user_milestones: Tracking tables
 """
@@ -20,7 +20,7 @@ class Hold(BaseModel):
     """A single hold on a route."""
     x: float = Field(..., description="X coordinate (0-10)")
     y: float = Field(..., description="Y coordinate (0-14)")
-    color: str = Field(..., description="Hold color: green/blue/yellow/purple")
+    color: str = Field(..., description="Hold color: green/blue/yellow/red")
 
 
 # ============== ROUTES ==============
@@ -56,10 +56,9 @@ class RouteResponse(BaseModel):
     description: Optional[str] = None
     angle: int
     visibility: str
-    likes: int = 0
+    send_count: int = 0
     creator_id: Optional[str] = None
     quality_average: Optional[float] = None
-    ascensionist_count: Optional[int] = None
     ai_suggested_grade: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -97,7 +96,7 @@ class ProfileResponse(ProfileBase):
         from_attributes = True
 
 
-# ============== SAVES/LIKES ==============
+# ============== SAVES/SENDS ==============
 
 class SaveResponse(BaseModel):
     """Response for save/unsave operations."""
@@ -105,10 +104,10 @@ class SaveResponse(BaseModel):
     saved_at: Optional[datetime] = None
 
 
-class LikeResponse(BaseModel):
-    """Response for like/unlike operations."""
-    liked: bool
-    likes: int
+class SendResponse(BaseModel):
+    """Response for send/unsend operations (completions)."""
+    sent: bool
+    send_count: int
 
 
 # ============== ERRORS ==============

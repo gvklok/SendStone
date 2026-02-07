@@ -112,7 +112,7 @@ async def create_route(route: RouteCreate):
         "description": route.description,
         "angle": route.angle,
         "visibility": route.visibility,
-        "likes": 0
+        "send_count": 0
     }
     
     route_response = supabase.table("routes").insert(route_data).execute()
@@ -242,34 +242,34 @@ async def unsave_route(route_id: str, user_id: str = Query(..., description="Use
     return {"saved": False}
 
 
-# ============== LIKE/SEND ENDPOINTS ==============
+# ============== SEND ENDPOINTS (completions) ==============
 
 @router.put("/{route_id}/send")
-async def like_route(route_id: str, user_id: str = Query(..., description="User ID (temp until auth)")):
+async def send_route(route_id: str, user_id: str = Query(..., description="User ID (temp until auth)")):
     """
-    Like a route (add a 'send').
-    
+    Log a send (mark route as completed by user).
+
     TODO: Get user_id from auth token instead of query param
     """
     supabase = get_supabase()
-    
-    # Check if route exists and get current likes
+
+    # Check if route exists and get current send_count
     try:
-        route = supabase.table("routes").select("id, likes").eq("id", route_id).limit(1).execute()
+        route = supabase.table("routes").select("id, send_count").eq("id", route_id).limit(1).execute()
     except Exception:
         raise HTTPException(status_code=404, detail="Route not found")
-    
+
     if route is None or not route.data:
         raise HTTPException(status_code=404, detail="Route not found")
-    
+
     route_data = route.data[0]
-    
-    # Check if already liked
+
+    # Check if already sent
     existing = supabase.table("sends").select("*").eq("user_id", user_id).eq("route_id", route_id).execute()
-    
+
     if existing and existing.data:
-        return {"liked": True, "likes": route_data["likes"], "message": "Already liked"}
-    
+        return {"sent": True, "send_count": route_data["send_count"], "message": "Already sent"}
+
     # Insert into sends table - handle foreign key errors
     try:
         supabase.table("sends").insert({"user_id": user_id, "route_id": route_id}).execute()
@@ -278,43 +278,43 @@ async def like_route(route_id: str, user_id: str = Query(..., description="User 
         if "foreign key" in str(e).lower() or "23503" in str(e):
             raise HTTPException(status_code=400, detail="Invalid user ID - user does not exist")
         raise HTTPException(status_code=500, detail=str(e))
-    
-    # Increment likes count on route
-    new_likes = (route_data["likes"] or 0) + 1
-    supabase.table("routes").update({"likes": new_likes}).eq("id", route_id).execute()
-    
-    return {"liked": True, "likes": new_likes}
+
+    # Increment send_count on route
+    new_count = (route_data["send_count"] or 0) + 1
+    supabase.table("routes").update({"send_count": new_count}).eq("id", route_id).execute()
+
+    return {"sent": True, "send_count": new_count}
 
 
 @router.delete("/{route_id}/send")
-async def unlike_route(route_id: str, user_id: str = Query(..., description="User ID (temp until auth)")):
+async def unsend_route(route_id: str, user_id: str = Query(..., description="User ID (temp until auth)")):
     """
-    Unlike a route (remove a 'send').
+    Remove a send (unmark route completion).
     """
     supabase = get_supabase()
-    
-    # Get current likes
+
+    # Get current send_count
     try:
-        route = supabase.table("routes").select("id, likes").eq("id", route_id).limit(1).execute()
+        route = supabase.table("routes").select("id, send_count").eq("id", route_id).limit(1).execute()
     except Exception:
         raise HTTPException(status_code=404, detail="Route not found")
-    
+
     if route is None or not route.data:
         raise HTTPException(status_code=404, detail="Route not found")
-    
+
     route_data = route.data[0]
-    
-    # Check if liked
+
+    # Check if sent
     existing = supabase.table("sends").select("*").eq("user_id", user_id).eq("route_id", route_id).execute()
-    
+
     if not existing or not existing.data:
-        return {"liked": False, "likes": route_data["likes"], "message": "Not liked"}
-    
+        return {"sent": False, "send_count": route_data["send_count"], "message": "Not sent"}
+
     # Remove from sends
     supabase.table("sends").delete().eq("user_id", user_id).eq("route_id", route_id).execute()
-    
-    # Decrement likes count
-    new_likes = max(0, route_data["likes"] - 1)
-    supabase.table("routes").update({"likes": new_likes}).eq("id", route_id).execute()
-    
-    return {"liked": False, "likes": new_likes}
+
+    # Decrement send_count
+    new_count = max(0, route_data["send_count"] - 1)
+    supabase.table("routes").update({"send_count": new_count}).eq("id", route_id).execute()
+
+    return {"sent": False, "send_count": new_count}

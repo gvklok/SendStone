@@ -23,7 +23,7 @@ TEST_ROUTE = {
     "holds": [
         {"x": 5.0, "y": 7.0, "color": "blue"},
         {"x": 3.0, "y": 4.0, "color": "green"},
-        {"x": 6.0, "y": 14.0, "color": "purple"}
+        {"x": 6.0, "y": 14.0, "color": "red"}
     ],
     "angle": 40,
     "visibility": "public"
@@ -373,7 +373,7 @@ class TestMLPrediction:
             "holds": [
                 {"x": 5.0, "y": 7.0, "color": "blue"},
                 {"x": 3.0, "y": 4.0, "color": "green"},
-                {"x": 6.0, "y": 14.0, "color": "purple"}
+                {"x": 6.0, "y": 14.0, "color": "red"}
             ],
             "angle": 40
         }

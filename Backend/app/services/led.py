@@ -12,12 +12,12 @@ from typing import List, Dict, Any, Optional
 # CONFIGURATION - Update these after wiring
 # =============================================================================
 
-# Color name to RGB mapping (from SendStone_Backend_Plan.md)
+# Color name to RGB mapping
 COLORS: Dict[str, tuple] = {
     "green":  (34, 197, 94),    # Start holds
     "blue":   (5, 103, 232),    # Hand holds
     "yellow": (234, 179, 8),    # Foot holds
-    "purple": (147, 51, 234),   # Finish holds
+    "red":    (239, 68, 68),    # Finish holds
 }
 
 # Coordinate (x, y) to LED index mapping
@@ -94,7 +94,7 @@ def get_rgb(color: str) -> tuple:
     """Convert color name to RGB tuple.
 
     Args:
-        color: Color name (green, blue, yellow, purple)
+        color: Color name (green, blue, yellow, red)
 
     Returns:
         RGB tuple (r, g, b), defaults to white if color unknown.
