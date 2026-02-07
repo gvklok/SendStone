@@ -136,11 +136,11 @@ const AuthModal = ({ open, onClose, onAuthenticated, targetTab, externalError })
               Email
             </label>
             <input
-              type="email"
+              type="text"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full border-2 border-gray-900 px-3 py-3 font-bold text-gray-900 focus:outline-none focus:border-blue-500"
-              placeholder="email@example.com"
+              placeholder="admin"
             />
           </div>
           <div className="space-y-1">

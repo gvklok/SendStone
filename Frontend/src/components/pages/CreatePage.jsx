@@ -6,6 +6,7 @@ const CreatePage = ({ onPostProblem, onSaveProblem, user }) => {
   const [grade, setGrade] = useState('V0');
   const [description, setDescription] = useState('');
   const [holds, setHolds] = useState([]);
+  const [angle, setAngle] = useState(40);
   const [boardKey, setBoardKey] = useState(0);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -15,16 +16,18 @@ const CreatePage = ({ onPostProblem, onSaveProblem, user }) => {
     setGrade('V0');
     setDescription('');
     setHolds([]);
+    setAngle(40);
     setBoardKey((k) => k + 1);
   };
 
+  // Build payload matching backend API format
   const buildPayload = () => ({
     name: name || 'Untitled Problem',
-    grade,
+    difficulty: grade.toLowerCase(),  // Backend expects lowercase "v4" not "V4"
     description,
-    holds,
-    createdAt: new Date().toISOString(),
-    userEmail: user?.email || '',
+    holds,  // Already in backend format: [{x, y, color}, ...]
+    angle,
+    visibility: 'public',
   });
 
   const handleSave = () => {
@@ -62,7 +65,10 @@ const CreatePage = ({ onPostProblem, onSaveProblem, user }) => {
         
         <div className="grid md:grid-cols-2 gap-8 md:gap-12">
           {/* Interactive Board */}
-          <InteractiveBoard key={boardKey} onHoldsChange={setHolds} initialHolds={[]} />
+          <InteractiveBoard
+            key={boardKey}
+            onHoldsChange={setHolds}
+          />
 
           {/* Problem Details Form */}
           <div className="space-y-5 md:space-y-6">
@@ -79,19 +85,35 @@ const CreatePage = ({ onPostProblem, onSaveProblem, user }) => {
               />
             </div>
             
-            <div>
-              <label className="block text-sm md:text-base font-black mb-2 text-gray-900 uppercase tracking-wider">
-                Grade
-              </label>
-              <select
-                value={grade}
-                onChange={(e) => setGrade(e.target.value)}
-                className="w-full px-4 py-3 md:py-4 border-2 border-gray-900 bg-white text-gray-900 font-bold focus:outline-none focus:border-blue-500"
-              >
-                {['V0', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V8', 'V9', 'V10', 'V11', 'V12'].map(g => (
-                  <option key={g}>{g}</option>
-                ))}
-              </select>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm md:text-base font-black mb-2 text-gray-900 uppercase tracking-wider">
+                  Grade
+                </label>
+                <select
+                  value={grade}
+                  onChange={(e) => setGrade(e.target.value)}
+                  className="w-full px-4 py-3 md:py-4 border-2 border-gray-900 bg-white text-gray-900 font-bold focus:outline-none focus:border-blue-500"
+                >
+                  {['V0', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V8', 'V9', 'V10', 'V11', 'V12'].map(g => (
+                    <option key={g}>{g}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm md:text-base font-black mb-2 text-gray-900 uppercase tracking-wider">
+                  Angle
+                </label>
+                <select
+                  value={angle}
+                  onChange={(e) => setAngle(parseInt(e.target.value))}
+                  className="w-full px-4 py-3 md:py-4 border-2 border-gray-900 bg-white text-gray-900 font-bold focus:outline-none focus:border-blue-500"
+                >
+                  {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70].map(a => (
+                    <option key={a} value={a}>{a}°</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div>

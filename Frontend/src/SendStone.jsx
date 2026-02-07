@@ -187,17 +187,50 @@ export default function ClimbingBoardApp() {
     setActiveTab('home');
   };
 
-  const handlePostProblem = (problem) => {
+  const handlePostProblem = async (problem) => {
     if (!user) return;
-    const newProblem = {
-      ...problem,
-      id: Date.now(),
-      sends: problem.sends || 0,
-      holds: problem.holds || [],
-      authorName: user.name || 'Anonymous',
-      authorUsername: user.username || user.email || 'climber',
-    };
-    setPublicProblems((prev) => [newProblem, ...prev]);
+
+    try {
+      // Post to backend API
+      const res = await fetch('http://127.0.0.1:8000/routes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: problem.name,
+          difficulty: problem.difficulty,
+          description: problem.description || '',
+          holds: problem.holds || [],
+          angle: problem.angle || 40,
+          visibility: 'public',
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        console.error('Failed to post route:', err);
+        alert(`Failed to post: ${err.detail || res.status}`);
+        return;
+      }
+
+      const newRoute = await res.json();
+      console.log('Route posted successfully:', newRoute);
+
+      // Add to local state for immediate UI update
+      const newProblem = {
+        id: newRoute.id,
+        name: newRoute.name,
+        grade: newRoute.difficulty?.toUpperCase() || 'V0',
+        sends: newRoute.send_count || 0,
+        holds: newRoute.holds || [],
+        angle: newRoute.angle,
+        authorName: user.name || 'Anonymous',
+        authorUsername: user.username || user.email || 'climber',
+      };
+      setPublicProblems((prev) => [newProblem, ...prev]);
+    } catch (err) {
+      console.error('Error posting route:', err);
+      alert('Failed to post route. Is the backend running?');
+    }
   };
 
   const handleSaveProblem = (problem) => {
