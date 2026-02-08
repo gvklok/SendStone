@@ -50,6 +50,17 @@ const CreatePage = ({ onPostProblem, onSaveProblem, user }) => {
       setError('Log in to post a problem.');
       return;
     }
+    // Validate hold requirements
+    const greenCount = holds.filter(h => h.color === 'green').length;
+    const redCount = holds.filter(h => h.color === 'red').length;
+    if (greenCount < 1 || greenCount > 2) {
+      setError('Route must have 1 or 2 start holds (green).');
+      return;
+    }
+    if (redCount < 1 || redCount > 2) {
+      setError('Route must have 1 or 2 finish holds (red).');
+      return;
+    }
     const payload = buildPayload();
     onPostProblem?.(payload);
     setMessage('Problem posted to Explore.');

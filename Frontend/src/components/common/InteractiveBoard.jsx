@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { Trash2 } from 'lucide-react';
 import boardImage from '../../assets/board.png';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -102,10 +103,6 @@ const InteractiveBoard = ({ onHoldsChange }) => {
 
   const clearRoute = () => setSelectedRoute([]);
 
-  const undoLast = () => {
-    setSelectedRoute(prev => prev.slice(0, -1));
-  };
-
   const getHoldColor = (hx, hy) => {
     const entry = selectedRoute.find(r => r.x === hx && r.y === hy);
     return entry ? entry.color : null;
@@ -113,21 +110,23 @@ const InteractiveBoard = ({ onHoldsChange }) => {
 
   return (
     <div className="space-y-4">
-      {/* Controls */}
-      <div className="flex flex-wrap gap-2 p-3 bg-white border-2 border-gray-900 items-center">
-        <span className="text-[10px] font-bold text-gray-500 leading-snug">
-          Click: <span style={{color: COLOR_STYLES.blue.border}}>● Mid</span>
-          {' → '}<span style={{color: COLOR_STYLES.green.border}}>● Start</span>
-          {' → '}<span style={{color: COLOR_STYLES.yellow.border}}>● Foot</span>
-          {' → '}<span style={{color: COLOR_STYLES.red.border}}>● Finish</span>
-          {' → 🗑️'}
-        </span>
-        <div className="w-px h-5 bg-gray-300 mx-1" />
-        <button onClick={clearRoute} className="px-3 py-1.5 font-bold text-xs uppercase border-2 border-gray-900 bg-red-500 text-white">
-          Clear
-        </button>
-        <button onClick={undoLast} className="px-3 py-1.5 font-bold text-xs uppercase border-2 border-gray-900 bg-gray-200 text-gray-800">
-          Undo
+      {/* Legend */}
+      <div className="flex items-center gap-4 px-4 py-3 bg-white border-2 border-gray-200 rounded-xl">
+        <span className="text-sm font-black text-gray-800 uppercase tracking-wider whitespace-nowrap">Click Holds:</span>
+        {COLOR_CYCLE.map(color => (
+          <div key={color} className="flex items-center gap-1.5">
+            <div className="w-5 h-5 rounded-full" style={{ backgroundColor: COLOR_STYLES[color].border }} />
+            <span className="text-sm font-semibold text-gray-600">{COLOR_LABELS[color]}</span>
+          </div>
+        ))}
+        <button
+          onClick={clearRoute}
+          className="ml-auto flex items-center gap-1 px-2 py-1 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+          title="Clear all holds"
+          aria-label="Clear all holds"
+        >
+          <Trash2 size={15} strokeWidth={2.25} />
+          <span className="text-xs font-semibold">Clear</span>
         </button>
       </div>
 
