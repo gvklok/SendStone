@@ -155,13 +155,13 @@ const CreatePage = ({ onPostProblem, onSaveProblem, user }) => {
                 onClick={handleSave}
                 className="w-full bg-gray-900 text-neutral-100 py-4 md:py-5 font-black uppercase tracking-widest hover:bg-gray-800 transition-colors border-2 border-gray-900"
               >
-                Save Problem
+                Save
               </button>
               <button
                 onClick={handlePost}
                 className="w-full bg-blue-600 text-white py-4 md:py-5 font-black uppercase tracking-widest hover:bg-blue-500 transition-colors border-2 border-blue-600"
               >
-                Post Problem
+                Post
               </button>
             </div>
           </div>

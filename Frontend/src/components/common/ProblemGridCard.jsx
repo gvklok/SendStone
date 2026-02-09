@@ -50,9 +50,9 @@ const ProblemGridCard = ({
         </button>
       </div>
     </div>
-    <div className="px-3 py-2 flex items-center justify-between text-[11px] text-gray-600 font-semibold uppercase tracking-widest">
-      <span>{name || `Problem #${id}`}</span>
-      <span className="text-gray-500">{grade} · {sends} ascents</span>
+    <div className="px-3 py-2 flex items-center justify-between text-[11px] text-gray-600 font-semibold uppercase tracking-widest gap-2">
+      <span className="truncate min-w-0">{name || `Problem #${id}`}</span>
+      <span className="text-gray-500 whitespace-nowrap flex-shrink-0">{grade} · {sends} ascents</span>
     </div>
     <div className="px-3 pb-2 text-[10px] text-gray-500 uppercase font-semibold tracking-widest">
       @{authorUsername || 'climber'}
