@@ -9,6 +9,7 @@ import ExplorePage from './components/pages/ExplorePage';
 import SavedPage from './components/pages/SavedPage';
 import ProfilePage from './components/pages/ProfilePage';
 import AuthModal from './components/common/AuthModal';
+import { supabase } from './supabaseClient';
 
 // Kick off background prefetch of popular routes on app boot
 import './routeCache';
@@ -29,21 +30,78 @@ export default function ClimbingBoardApp() {
 
   const restrictedTabs = ['create', 'profile', 'saved'];
 
-  const loadPhotoForEmail = (email) => {
-    if (!email) return null;
-    return localStorage.getItem(`sendstoneUserPhoto_${email}`) || null;
+  // Sync user profile to profiles table via backend API
+  const syncProfileToDatabase = async (userId, userData) => {
+    try {
+      const response = await fetch('http://127.0.0.1:8000/profiles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: userId,
+          email: userData.email,
+          name: userData.name,
+          username: userData.username,
+          photo_url: userData.photoData,
+          climber_level: userData.climbingLevel,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('Error syncing profile to database:', error);
+      } else {
+        const profile = await response.json();
+        console.log('Profile synced successfully:', profile);
+      }
+    } catch (err) {
+      console.error('Failed to sync profile:', err);
+    }
   };
 
+  // Listen for Supabase auth state changes (handles OAuth callback)
   useEffect(() => {
-    const savedUser = localStorage.getItem('sendstoneUser');
-    if (!savedUser) return;
-    try {
-      const parsed = JSON.parse(savedUser);
-      const photoData = loadPhotoForEmail(parsed.email) || parsed.photoData || null;
-      setUser({ ...parsed, photoData });
-    } catch (e) {
-      // ignore parse errors
-    }
+    // Check current session on mount
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        const supaUser = session.user;
+        const userData = {
+          email: supaUser.email,
+          name: supaUser.user_metadata?.name || supaUser.user_metadata?.full_name || supaUser.email.split('@')[0],
+          username: supaUser.user_metadata?.username || supaUser.email.split('@')[0],
+          climbingLevel: supaUser.user_metadata?.climbingLevel || 'beginner',
+          photoData: supaUser.user_metadata?.photoData || supaUser.user_metadata?.avatar_url || null,
+        };
+        setUser(userData);
+        // Sync to profiles table
+        syncProfileToDatabase(supaUser.id, userData);
+      } else {
+        setUser(null);
+      }
+    });
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user && _event !== 'SIGNED_OUT') {
+        const supaUser = session.user;
+        const userData = {
+          email: supaUser.email,
+          name: supaUser.user_metadata?.name || supaUser.user_metadata?.full_name || supaUser.email.split('@')[0],
+          username: supaUser.user_metadata?.username || supaUser.email.split('@')[0],
+          climbingLevel: supaUser.user_metadata?.climbingLevel || 'beginner',
+          photoData: supaUser.user_metadata?.photoData || supaUser.user_metadata?.avatar_url || null,
+        };
+        setUser(userData);
+        // Sync to profiles table (important for OAuth flows)
+        syncProfileToDatabase(supaUser.id, userData);
+      } else if (_event === 'SIGNED_OUT') {
+        setUser(null);
+        setActiveTab('home');
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -116,78 +174,25 @@ export default function ClimbingBoardApp() {
 
   const handleAuthenticated = (userObj) => {
     setAuthError('');
-
-    const MAX_PHOTO_BYTES = 200 * 1024;
-    const estimateB64Bytes = (dataUrl) => {
-      if (!dataUrl) return 0;
-      const base = dataUrl.split(',')[1] || '';
-      return Math.floor(base.length * 0.75);
-    };
-
-    const safeUser = { ...userObj };
-    const photoData = safeUser.photoData;
-    if (photoData && estimateB64Bytes(photoData) > MAX_PHOTO_BYTES) {
-      safeUser.photoData = null; // drop oversized photo to avoid quota errors
-    }
-
-    const persistPhoto = () => {
-      if (!safeUser.email) return true;
-      try {
-        if (safeUser.photoData) {
-          localStorage.setItem(`sendstoneUserPhoto_${safeUser.email}`, safeUser.photoData);
-        } else {
-          localStorage.removeItem(`sendstoneUserPhoto_${safeUser.email}`);
-        }
-        return true;
-      } catch (e) {
-        return false;
-      }
-    };
-
-    const persistCurrentUser = (obj) => {
-      const minimal = { ...obj, photoData: undefined };
-      try {
-        localStorage.setItem('sendstoneUser', JSON.stringify(minimal));
-        return true;
-      } catch (e) {
-        return false;
-      }
-    };
-
-    const persistUserList = (obj) => {
-      try {
-        const storedUsers = JSON.parse(localStorage.getItem('sendstoneUsers') || '[]');
-        const updated = [
-          ...storedUsers.filter((u) => u.email !== obj.email),
-          { ...obj, photoData: undefined },
-        ];
-        localStorage.setItem('sendstoneUsers', JSON.stringify(updated));
-        return true;
-      } catch (e) {
-        return false;
-      }
-    };
-
-    // try with current data, then without photo if needed
-    if (!persistPhoto() || !persistCurrentUser(safeUser) || !persistUserList(safeUser)) {
-      safeUser.photoData = null;
-      if (!persistPhoto() || !persistCurrentUser(safeUser) || !persistUserList(safeUser)) {
-        setAuthError('Storage is full. Clear site data or upload a smaller photo.');
-        setShowAuth(true);
-        return;
-      }
-    }
-
-    setUser({ ...safeUser, photoData: photoData || safeUser.photoData || null });
+    // Immediately set user from the auth response
+    setUser(userObj);
     setShowAuth(false);
-    setActiveTab(pendingTab || activeTab);
-    setPendingTab(null);
+    if (pendingTab) {
+      setActiveTab(pendingTab);
+      setPendingTab(null);
+    }
   };
 
-  const handleSignOut = () => {
-    setUser(null);
-    localStorage.removeItem('sendstoneUser');
-    setActiveTab('home');
+  const handleSignOut = async () => {
+    try {
+      await supabase.auth.signOut();
+      // The auth state change listener will handle clearing user state
+    } catch (error) {
+      console.error('Error signing out:', error);
+      // Fallback: clear manually if Supabase fails
+      setUser(null);
+      setActiveTab('home');
+    }
   };
 
   const handlePostProblem = async (problem) => {
