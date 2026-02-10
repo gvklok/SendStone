@@ -14,7 +14,10 @@ def get_supabase() -> Client:
 
 
 def get_supabase_admin() -> Client:
-    """Get Supabase client with service role (admin) privileges using v2 schema."""
+    """Get Supabase client with service role (admin) privileges.
+    
+    Uses v2 schema for profiles table.
+    """
     settings = get_settings()
     client = create_client(
         settings.supabase_url,

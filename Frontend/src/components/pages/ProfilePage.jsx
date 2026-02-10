@@ -1,20 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { User } from 'lucide-react';
 import StatCard from '../common/StatCard';
 
 const ProfilePage = ({ user, onSignOut }) => {
   const displayName = user?.name || 'Climber';
   const username = user?.username || 'climber';
-  const [photo, setPhoto] = useState(user?.photoData || null);
-
-  useEffect(() => {
-    if (!user?.email) {
-      setPhoto(user?.photoData || null);
-      return;
-    }
-    const storedPhoto = localStorage.getItem(`sendstoneUserPhoto_${user.email}`);
-    setPhoto(storedPhoto || user?.photoData || null);
-  }, [user]);
+  const photo = user?.photoData || null;
 
   return (
     <div className="flex-1 overflow-y-auto pb-20 md:pb-0">
