@@ -45,7 +45,12 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
       const items = data.items || [];
 
       if (append) {
-        setRoutes(prev => [...prev, ...items]);
+        setRoutes(prev => {
+          // Deduplicate by ID
+          const existingIds = new Set(prev.map(r => r.id));
+          const newItems = items.filter(item => !existingIds.has(item.id));
+          return [...prev, ...newItems];
+        });
       } else {
         setRoutes(items);
       }

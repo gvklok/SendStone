@@ -1,0 +1,11 @@
+# SENDIT v2 API — runtime dependencies (no PyTorch needed)
+fastapi
+uvicorn[standard]
+onnxruntime
+numpy
+scikit-learn
+scipy
+
+# --- Dev machine only (for export_onnx.py) ---
+# torch
+# onnx
