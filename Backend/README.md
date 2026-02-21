@@ -11,7 +11,7 @@
 
    ```bash
    cd SendStone/Backend
-   conda activate board        # or: python -m venv venv && source venv/bin/activate
+   python -m venv venv && source venv/bin/activate
    ```
 
 2. **Install dependencies**
