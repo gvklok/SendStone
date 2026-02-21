@@ -34,6 +34,14 @@ try:
 except ImportError:
     MODEL_AVAILABLE = False
     ROLE_START = ROLE_HAND = ROLE_FINISH = ROLE_FOOT = None
+finally:
+    # Remove sendit-api from sys.path immediately — leaving it there causes
+    # sendit-api/app.py to shadow the project's 'app' package when the
+    # WatchFiles reloader spawns child processes.
+    try:
+        sys.path.remove(SENDIT_API_DIR)
+    except ValueError:
+        pass
 
 # Paths
 ONNX_PATH = os.path.join(SENDIT_API_DIR, 'models', 'sendit_v2.onnx')
