@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Plus, Search, Bookmark, User } from 'lucide-react';
+import { Home, Plus, Search, Bookmark, User, MapPinned } from 'lucide-react';
 import NavigationButton from '../common/NavigationButton';
 
 const MobileBottomNav = ({ activeTab, setActiveTab }) => (
@@ -8,6 +8,7 @@ const MobileBottomNav = ({ activeTab, setActiveTab }) => (
     <NavigationButton icon={Plus} label="Create" tabName="create" activeTab={activeTab} setActiveTab={setActiveTab} />
     <NavigationButton icon={Search} label="Explore" tabName="explore" activeTab={activeTab} setActiveTab={setActiveTab} />
     <NavigationButton icon={Bookmark} label="Saved" tabName="saved" activeTab={activeTab} setActiveTab={setActiveTab} />
+    <NavigationButton icon={MapPinned} label="Yours" tabName="yourRoutes" activeTab={activeTab} setActiveTab={setActiveTab} />
     <NavigationButton icon={User} label="Profile" tabName="profile" activeTab={activeTab} setActiveTab={setActiveTab} />
   </nav>
 );

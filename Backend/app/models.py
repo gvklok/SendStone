@@ -32,6 +32,7 @@ class RouteBase(BaseModel):
     description: Optional[str] = None
     angle: int = Field(default=40, ge=0, le=70)
     visibility: str = Field(default="public", description="public or private")
+    creator_id: Optional[str] = None
 
 
 class RouteCreate(RouteBase):
@@ -58,6 +59,7 @@ class RouteResponse(BaseModel):
     visibility: str
     send_count: int = 0
     creator_id: Optional[str] = None
+    author_username: Optional[str] = None
     quality_average: Optional[float] = None
     ai_suggested_grade: Optional[str] = None
     created_at: datetime

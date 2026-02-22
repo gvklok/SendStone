@@ -39,7 +39,7 @@ const CreatePage = ({ onPostProblem, onSaveProblem, user }) => {
     }
     const payload = buildPayload();
     onSaveProblem?.(payload);
-    setMessage('Problem saved to your library.');
+    setMessage('Problem saved privately to Your Routes.');
     resetForm();
   };
 
@@ -68,9 +68,9 @@ const CreatePage = ({ onPostProblem, onSaveProblem, user }) => {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto pb-20 md:pb-0 p-6 md:p-12 bg-neutral-100">
+    <div className="flex-1 overflow-y-auto pb-20 md:pb-0 p-4 md:p-12 bg-neutral-100">
       <div className="max-w-7xl mx-auto">
-        <h2 className="text-3xl md:text-5xl font-black mb-6 md:mb-10 text-gray-900 uppercase tracking-wider border-l-4 border-blue-500 pl-4">
+        <h2 className="text-2xl md:text-5xl font-black mb-5 md:mb-10 text-gray-900 uppercase tracking-wide md:tracking-wider border-l-4 border-blue-500 pl-3 md:pl-4">
           Create Problem
         </h2>
         

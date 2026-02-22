@@ -84,13 +84,13 @@ const BoardPreview = ({ holds = [], className = '' }) => {
   return (
     <div
       ref={frameRef}
-      className={`relative bg-neutral-900 overflow-hidden ${className}`}
+      className={`sendstone-board-surface relative bg-neutral-900 overflow-hidden ${className}`}
       style={{ width: '100%', aspectRatio: `${BOARD_W} / ${BOARD_H}` }}
     >
       <img
         src={boardImage}
         alt="Kilter Board"
-        className="pointer-events-none select-none block"
+        className="sendstone-board-image pointer-events-none select-none block"
         style={{ width: '100%', height: '100%' }}
         draggable="false"
       />

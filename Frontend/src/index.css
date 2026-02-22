@@ -1,3 +1,81 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+html.sendstone-text-large {
+  font-size: 20px;
+}
+
+/* Large-text mode: also bump fixed pixel utility sizes so all text increases. */
+html.sendstone-text-large .text-\[10px\] {
+  font-size: 14px !important;
+}
+
+html.sendstone-text-large .text-\[11px\] {
+  font-size: 15px !important;
+}
+
+html.sendstone-dark {
+  background: #101114;
+  filter: invert(1) hue-rotate(180deg);
+}
+
+html.sendstone-dark img,
+html.sendstone-dark video,
+html.sendstone-dark canvas,
+html.sendstone-dark svg {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+html.sendstone-dark .sendstone-sidebar-btn .sendstone-nav-icon {
+  filter: none !important;
+}
+
+html.sendstone-dark .sendstone-sidebar-btn.sendstone-sidebar-selected {
+  filter: invert(1) hue-rotate(180deg) !important;
+}
+
+html.sendstone-dark .sendstone-burger-icon,
+html.sendstone-dark .sendstone-dashboard-icon {
+  filter: invert(1) hue-rotate(180deg) !important;
+  color: #f3f4f6 !important;
+  stroke: #f3f4f6 !important;
+}
+
+html.sendstone-dark .hero-pan {
+  filter: invert(1) hue-rotate(180deg) !important;
+}
+
+html.sendstone-dark .sendstone-hero-mountain {
+  filter: none !important;
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+html.sendstone-dark .sendstone-header-mountain {
+  filter: invert(1) hue-rotate(180deg) !important;
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+html.sendstone-dark .sendstone-auth-popup-mountain {
+  filter: none !important;
+  color: #000000 !important;
+  stroke: #000000 !important;
+}
+
+html.sendstone-dark .sendstone-board-surface {
+  filter: invert(1) hue-rotate(180deg) !important;
+}
+
+html.sendstone-dark .sendstone-board-image {
+  filter: none !important;
+}
+
+html.sendstone-dark .sendstone-click-holds-legend {
+  filter: invert(1) hue-rotate(180deg) !important;
+}
+
+html.sendstone-dark .sendstone-click-holds-summary {
+  filter: invert(1) hue-rotate(180deg) !important;
+}

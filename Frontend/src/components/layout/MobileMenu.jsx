@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Plus, Search, Bookmark, User, Mountain, X } from 'lucide-react';
+import { Home, Plus, Search, Bookmark, User, Mountain, X, MapPinned } from 'lucide-react';
 
 const MobileMenu = ({ mobileMenuOpen, setMobileMenuOpen, activeTab, setActiveTab }) => {
   if (!mobileMenuOpen) return null;
@@ -9,6 +9,7 @@ const MobileMenu = ({ mobileMenuOpen, setMobileMenuOpen, activeTab, setActiveTab
     { icon: Plus, label: 'Create', tabName: 'create' },
     { icon: Search, label: 'Explore', tabName: 'explore' },
     { icon: Bookmark, label: 'Saved', tabName: 'saved' },
+    { icon: MapPinned, label: 'Your Routes', tabName: 'yourRoutes' },
     { icon: User, label: 'Profile', tabName: 'profile' },
   ];
 
