@@ -1,8 +1,47 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Mountain, Bookmark, Lightbulb, X } from 'lucide-react';
 import BoardPreview from '../../common/BoardPreview';
 
 const FullscreenPost = ({ post, onClose, onSave, onSend, onSendToBoard, liked = false, saved = false }) => {
+  const [predictedGrade, setPredictedGrade] = useState(null);
+  const [isPredicting, setIsPredicting] = useState(false);
+  const [predictionError, setPredictionError] = useState(null);
+
+  // Reset prediction when post changes
+  useEffect(() => {
+    setPredictedGrade(null);
+    setPredictionError(null);
+  }, [post?.id]);
+
+  const handlePredictGrade = async () => {
+    setPredictionError(null);
+    setIsPredicting(true);
+
+    try {
+      const response = await fetch('http://localhost:8000/ml/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          holds: post.holds || [],
+          angle: post.angle || 40,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setPredictedGrade(data.suggested_grade.toUpperCase());
+      } else if (response.status === 503) {
+        setPredictionError('ML model not available');
+      } else {
+        setPredictionError('Failed to predict grade');
+      }
+    } catch (err) {
+      setPredictionError('Could not connect to ML service');
+    } finally {
+      setIsPredicting(false);
+    }
+  };
+
   if (!post) return null;
 
   return (
@@ -88,6 +127,75 @@ const FullscreenPost = ({ post, onClose, onSave, onSend, onSendToBoard, liked = 
               </span>
             )}
           </div>
+
+          {/* AI Prediction Section */}
+          <div className="border-t border-gray-200 pt-4 space-y-3">
+            {!predictedGrade && !isPredicting && (
+              <button
+                onClick={handlePredictGrade}
+                className="px-4 py-2 bg-gray-900 text-white text-xs font-bold uppercase tracking-wide hover:bg-gray-800 transition-colors inline-flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                Check AI Prediction
+              </button>
+            )}
+
+            {isPredicting && (
+              <div className="text-sm text-gray-500 font-medium">
+                Analyzing route...
+              </div>
+            )}
+
+            {predictedGrade && (
+              <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">
+                    AI Prediction
+                  </span>
+                  <button
+                    onClick={() => setPredictedGrade(null)}
+                    className="text-xs text-gray-400 hover:text-gray-600"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">Actual</div>
+                    <div className="text-2xl font-black text-gray-900">{post.grade}</div>
+                  </div>
+                  <div className="text-gray-300">→</div>
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">Predicted</div>
+                    <div className={`text-2xl font-black ${
+                      predictedGrade === post.grade ? 'text-green-600' : 'text-blue-600'
+                    }`}>
+                      {predictedGrade}
+                    </div>
+                  </div>
+                </div>
+                {predictedGrade === post.grade && (
+                  <div className="mt-2 text-xs font-semibold text-green-600">
+                    ✓ AI agrees with this grade
+                  </div>
+                )}
+                {predictedGrade !== post.grade && (
+                  <div className="mt-2 text-xs font-medium text-gray-600">
+                    AI suggests a different difficulty
+                  </div>
+                )}
+              </div>
+            )}
+
+            {predictionError && (
+              <div className="text-xs font-medium text-red-600">
+                {predictionError}
+              </div>
+            )}
+          </div>
+
           <p className="text-gray-600 text-base leading-relaxed">
             {post.description || 'No description provided.'}
           </p>

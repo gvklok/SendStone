@@ -2,7 +2,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
-from app.routers import routes, hardware, profiles
+from app.routers import routes, hardware, profiles, ml
+from app.services import ml_predictor
 
 # Create FastAPI app
 app = FastAPI(
@@ -24,6 +25,14 @@ app.add_middleware(
 app.include_router(routes.router)
 app.include_router(hardware.router)
 app.include_router(profiles.router)
+app.include_router(ml.router)
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize services on startup."""
+    print("🚀 Starting SendStone API...")
+    ml_predictor.initialize()
 
 
 @app.get("/")

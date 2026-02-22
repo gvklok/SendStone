@@ -357,51 +357,59 @@ class TestResponseFormats:
 
 # ============== RUN TESTS ==============
 
-# ============== ML PREDICTION TESTS (PLACEHOLDER) ==============
+# ============== ML PREDICTION TESTS ==============
 
 class TestMLPrediction:
-    """Test POST /ml/predict endpoint.
-    
-    NOTE: These tests are placeholders until the ML model is integrated.
-    They will be skipped until the endpoint exists.
-    """
-    
-    @pytest.mark.skip(reason="ML endpoint not yet implemented")
+    """Test POST /ml/predict endpoint."""
+
     def test_predict_grade(self):
         """POST /ml/predict should return suggested grade."""
         request_body = {
             "holds": [
-                {"x": 5.0, "y": 7.0, "color": "blue"},
                 {"x": 3.0, "y": 4.0, "color": "green"},
+                {"x": 5.0, "y": 7.0, "color": "blue"},
                 {"x": 6.0, "y": 14.0, "color": "red"}
             ],
             "angle": 40
         }
-        
+
         response = client.post("/ml/predict", json=request_body)
         assert response.status_code == 200
         data = response.json()
-        
+
         # Check response structure
         assert "suggested_grade" in data
         assert "confidence" in data
-        
-        # Grade should be valid v-grade
+        assert "raw" in data
+
+        # Grade should be a valid v-grade (e.g. "v4")
         assert data["suggested_grade"].startswith("v")
-        
+
         # Confidence should be between 0 and 1
         assert 0 <= data["confidence"] <= 1
-    
-    @pytest.mark.skip(reason="ML endpoint not yet implemented")
+
+        # Raw score should be a number
+        assert isinstance(data["raw"], float)
+
     def test_predict_requires_holds(self):
-        """POST /ml/predict should fail without holds."""
+        """POST /ml/predict should fail with 422 when holds field is missing."""
         response = client.post("/ml/predict", json={"angle": 40})
         assert response.status_code == 422
-    
-    @pytest.mark.skip(reason="ML endpoint not yet implemented")
+
     def test_predict_empty_holds(self):
-        """POST /ml/predict should fail with empty holds array."""
+        """POST /ml/predict should return 400 for an empty holds array."""
         response = client.post("/ml/predict", json={"holds": [], "angle": 40})
+        assert response.status_code == 400
+
+    def test_predict_requires_angle(self):
+        """POST /ml/predict should fail with 422 when angle field is missing."""
+        request_body = {
+            "holds": [
+                {"x": 3.0, "y": 4.0, "color": "green"},
+                {"x": 6.0, "y": 14.0, "color": "red"}
+            ]
+        }
+        response = client.post("/ml/predict", json=request_body)
         assert response.status_code == 422
 
 

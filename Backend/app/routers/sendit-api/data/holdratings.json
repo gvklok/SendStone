@@ -1,0 +1,1157 @@
+[
+  {
+    "x": 0,
+    "y": 0,
+    "difficulty": 1,
+    "type": "jug",
+    "rotation": 0
+  },
+  {
+    "x": 0,
+    "y": 1,
+    "difficulty": 2,
+    "type": "jug",
+    "rotation": 0
+  },
+  {
+    "x": 0,
+    "y": 2,
+    "difficulty": 3,
+    "type": "crimp",
+    "rotation": -90
+  },
+  {
+    "x": 0,
+    "y": 3,
+    "difficulty": 2,
+    "type": "jug",
+    "rotation": -90
+  },
+  {
+    "x": 0,
+    "y": 4,
+    "difficulty": 2,
+    "type": "sloper",
+    "rotation": 0
+  },
+  {
+    "x": 0,
+    "y": 5,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": -45
+  },
+  {
+    "x": 0,
+    "y": 6,
+    "difficulty": 3,
+    "type": "regular",
+    "rotation": 45
+  },
+  {
+    "x": 0,
+    "y": 7,
+    "difficulty": 2,
+    "type": "crimp",
+    "rotation": -45
+  },
+  {
+    "x": 0,
+    "y": 8,
+    "difficulty": 3,
+    "type": "jug",
+    "rotation": -90
+  },
+  {
+    "x": 0,
+    "y": 9,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": 0
+  },
+  {
+    "x": 0,
+    "y": 10,
+    "difficulty": 4,
+    "type": "crimp",
+    "rotation": -45
+  },
+  {
+    "x": 0,
+    "y": 11,
+    "difficulty": 2,
+    "type": "jug",
+    "rotation": -45
+  },
+  {
+    "x": 0,
+    "y": 12,
+    "difficulty": 3,
+    "type": "regular",
+    "rotation": 45
+  },
+  {
+    "x": 0,
+    "y": 13,
+    "difficulty": 3,
+    "type": "crimp",
+    "rotation": -45
+  },
+  {
+    "x": 0,
+    "y": 14,
+    "difficulty": 2,
+    "type": "jug",
+    "rotation": 0
+  },
+  {
+    "x": 1,
+    "y": 0,
+    "difficulty": 2,
+    "type": "crimp",
+    "rotation": 0
+  },
+  {
+    "x": 1,
+    "y": 1,
+    "difficulty": 1,
+    "type": "jug",
+    "rotation": 45
+  },
+  {
+    "x": 1,
+    "y": 2,
+    "difficulty": 2,
+    "type": "crimp",
+    "rotation": 180
+  },
+  {
+    "x": 1,
+    "y": 3,
+    "difficulty": 4,
+    "type": "pinch",
+    "rotation": 180
+  },
+  {
+    "x": 1,
+    "y": 4,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": 0
+  },
+  {
+    "x": 1,
+    "y": 5,
+    "difficulty": 4,
+    "type": "crimp",
+    "rotation": -45
+  },
+  {
+    "x": 1,
+    "y": 6,
+    "difficulty": 2,
+    "type": "jug",
+    "rotation": -45
+  },
+  {
+    "x": 1,
+    "y": 7,
+    "difficulty": 2,
+    "type": "crimp",
+    "rotation": -135
+  },
+  {
+    "x": 1,
+    "y": 8,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": 45
+  },
+  {
+    "x": 1,
+    "y": 9,
+    "difficulty": 3,
+    "type": "pinch",
+    "rotation": 90
+  },
+  {
+    "x": 1,
+    "y": 10,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": 90
+  },
+  {
+    "x": 1,
+    "y": 11,
+    "difficulty": 4,
+    "type": "pinch",
+    "rotation": 180
+  },
+  {
+    "x": 1,
+    "y": 12,
+    "difficulty": 2,
+    "type": "crimp",
+    "rotation": 0
+  },
+  {
+    "x": 1,
+    "y": 13,
+    "difficulty": 2,
+    "type": "crimp",
+    "rotation": 45
+  },
+  {
+    "x": 1,
+    "y": 14,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": 45
+  },
+  {
+    "x": 2,
+    "y": 0,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": 0
+  },
+  {
+    "x": 2,
+    "y": 1,
+    "difficulty": 1,
+    "type": "jug",
+    "rotation": 45
+  },
+  {
+    "x": 2,
+    "y": 2,
+    "difficulty": 3,
+    "type": "crimp",
+    "rotation": -45
+  },
+  {
+    "x": 2,
+    "y": 3,
+    "difficulty": 3,
+    "type": "crimp",
+    "rotation": 45
+  },
+  {
+    "x": 2,
+    "y": 4,
+    "difficulty": 2,
+    "type": "crimp",
+    "rotation": 45
+  },
+  {
+    "x": 2,
+    "y": 5,
+    "difficulty": 2,
+    "type": "crimp",
+    "rotation": 0
+  },
+  {
+    "x": 2,
+    "y": 6,
+    "difficulty": 3,
+    "type": "crimp",
+    "rotation": 45
+  },
+  {
+    "x": 2,
+    "y": 7,
+    "difficulty": 3,
+    "type": "crimp",
+    "rotation": 45
+  },
+  {
+    "x": 2,
+    "y": 8,
+    "difficulty": 3,
+    "type": "regular",
+    "rotation": 0
+  },
+  {
+    "x": 2,
+    "y": 9,
+    "difficulty": 2,
+    "type": "crimp",
+    "rotation": -45
+  },
+  {
+    "x": 2,
+    "y": 10,
+    "difficulty": 2,
+    "type": "crimp",
+    "rotation": 0
+  },
+  {
+    "x": 2,
+    "y": 11,
+    "difficulty": 3,
+    "type": "regular",
+    "rotation": 0
+  },
+  {
+    "x": 2,
+    "y": 12,
+    "difficulty": 3,
+    "type": "regular",
+    "rotation": -45
+  },
+  {
+    "x": 2,
+    "y": 13,
+    "difficulty": 2,
+    "type": "pinch",
+    "rotation": 180
+  },
+  {
+    "x": 2,
+    "y": 14,
+    "difficulty": 1,
+    "type": "jug",
+    "rotation": 0
+  },
+  {
+    "x": 3,
+    "y": 0,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": -45
+  },
+  {
+    "x": 3,
+    "y": 1,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": -135
+  },
+  {
+    "x": 3,
+    "y": 2,
+    "difficulty": 2,
+    "type": "crimp",
+    "rotation": 0
+  },
+  {
+    "x": 3,
+    "y": 3,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": -45
+  },
+  {
+    "x": 3,
+    "y": 4,
+    "difficulty": 2,
+    "type": "crimp",
+    "rotation": -45
+  },
+  {
+    "x": 3,
+    "y": 5,
+    "difficulty": 2,
+    "type": "pinch",
+    "rotation": -45
+  },
+  {
+    "x": 3,
+    "y": 6,
+    "difficulty": 3,
+    "type": "crimp",
+    "rotation": 45
+  },
+  {
+    "x": 3,
+    "y": 7,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": -45
+  },
+  {
+    "x": 3,
+    "y": 8,
+    "difficulty": 3,
+    "type": "pinch",
+    "rotation": -45
+  },
+  {
+    "x": 3,
+    "y": 9,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": 0
+  },
+  {
+    "x": 3,
+    "y": 10,
+    "difficulty": 2,
+    "type": "crimp",
+    "rotation": 0
+  },
+  {
+    "x": 3,
+    "y": 11,
+    "difficulty": 3,
+    "type": "crimp",
+    "rotation": -45
+  },
+  {
+    "x": 3,
+    "y": 12,
+    "difficulty": 3,
+    "type": "crimp",
+    "rotation": 45
+  },
+  {
+    "x": 3,
+    "y": 13,
+    "difficulty": 3,
+    "type": "regular",
+    "rotation": -45
+  },
+  {
+    "x": 3,
+    "y": 14,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": -45
+  },
+  {
+    "x": 4,
+    "y": 0,
+    "difficulty": 4,
+    "type": "pinch",
+    "rotation": 180
+  },
+  {
+    "x": 4,
+    "y": 1,
+    "difficulty": 3,
+    "type": "regular",
+    "rotation": 0
+  },
+  {
+    "x": 4,
+    "y": 2,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": 45
+  },
+  {
+    "x": 4,
+    "y": 3,
+    "difficulty": 2,
+    "type": "crimp",
+    "rotation": -45
+  },
+  {
+    "x": 4,
+    "y": 4,
+    "difficulty": 4,
+    "type": "pinch",
+    "rotation": 0
+  },
+  {
+    "x": 4,
+    "y": 5,
+    "difficulty": 3,
+    "type": "sloper",
+    "rotation": 45
+  },
+  {
+    "x": 4,
+    "y": 6,
+    "difficulty": 2,
+    "type": "crimp",
+    "rotation": 0
+  },
+  {
+    "x": 4,
+    "y": 7,
+    "difficulty": 2,
+    "type": "crimp",
+    "rotation": 0
+  },
+  {
+    "x": 4,
+    "y": 8,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": -45
+  },
+  {
+    "x": 4,
+    "y": 9,
+    "difficulty": 2,
+    "type": "crimp",
+    "rotation": -45
+  },
+  {
+    "x": 4,
+    "y": 10,
+    "difficulty": 4,
+    "type": "regular",
+    "rotation": 45
+  },
+  {
+    "x": 4,
+    "y": 11,
+    "difficulty": 3,
+    "type": "regular",
+    "rotation": 90
+  },
+  {
+    "x": 4,
+    "y": 12,
+    "difficulty": 4,
+    "type": "crimp",
+    "rotation": 0
+  },
+  {
+    "x": 4,
+    "y": 13,
+    "difficulty": 4,
+    "type": "crimp",
+    "rotation": 0
+  },
+  {
+    "x": 4,
+    "y": 14,
+    "difficulty": 2,
+    "type": "crimp",
+    "rotation": 0
+  },
+  {
+    "x": 5,
+    "y": 0,
+    "difficulty": 1,
+    "type": "jug",
+    "rotation": 180
+  },
+  {
+    "x": 5,
+    "y": 1,
+    "difficulty": 2,
+    "type": "crimp",
+    "rotation": 0
+  },
+  {
+    "x": 5,
+    "y": 2,
+    "difficulty": 3,
+    "type": "regular",
+    "rotation": 0
+  },
+  {
+    "x": 5,
+    "y": 3,
+    "difficulty": 2,
+    "type": "sloper",
+    "rotation": 0
+  },
+  {
+    "x": 5,
+    "y": 4,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": 180
+  },
+  {
+    "x": 5,
+    "y": 5,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": 0
+  },
+  {
+    "x": 5,
+    "y": 6,
+    "difficulty": 3,
+    "type": "regular",
+    "rotation": 0
+  },
+  {
+    "x": 5,
+    "y": 7,
+    "difficulty": 1,
+    "type": "jug",
+    "rotation": 180
+  },
+  {
+    "x": 5,
+    "y": 8,
+    "difficulty": 4,
+    "type": "pinch",
+    "rotation": 180
+  },
+  {
+    "x": 5,
+    "y": 9,
+    "difficulty": 1,
+    "type": "jug",
+    "rotation": 0
+  },
+  {
+    "x": 5,
+    "y": 10,
+    "difficulty": 3,
+    "type": "regular",
+    "rotation": 0
+  },
+  {
+    "x": 5,
+    "y": 11,
+    "difficulty": 3,
+    "type": "crimp",
+    "rotation": 0
+  },
+  {
+    "x": 5,
+    "y": 12,
+    "difficulty": 2,
+    "type": "jug",
+    "rotation": 0
+  },
+  {
+    "x": 5,
+    "y": 13,
+    "difficulty": 3,
+    "type": "regular",
+    "rotation": 0
+  },
+  {
+    "x": 5,
+    "y": 14,
+    "difficulty": 2,
+    "type": "jug",
+    "rotation": 0
+  },
+  {
+    "x": 6,
+    "y": 0,
+    "difficulty": 3,
+    "type": "regular",
+    "rotation": 0
+  },
+  {
+    "x": 6,
+    "y": 1,
+    "difficulty": 3,
+    "type": "regular",
+    "rotation": 180
+  },
+  {
+    "x": 6,
+    "y": 2,
+    "difficulty": 3,
+    "type": "regular",
+    "rotation": -90
+  },
+  {
+    "x": 6,
+    "y": 3,
+    "difficulty": 3,
+    "type": "crimp",
+    "rotation": -45
+  },
+  {
+    "x": 6,
+    "y": 4,
+    "difficulty": 3,
+    "type": "crimp",
+    "rotation": 0
+  },
+  {
+    "x": 6,
+    "y": 5,
+    "difficulty": 3,
+    "type": "sloper",
+    "rotation": -45
+  },
+  {
+    "x": 6,
+    "y": 6,
+    "difficulty": 2,
+    "type": "crimp",
+    "rotation": 0
+  },
+  {
+    "x": 6,
+    "y": 7,
+    "difficulty": 3,
+    "type": "crimp",
+    "rotation": 45
+  },
+  {
+    "x": 6,
+    "y": 8,
+    "difficulty": 3,
+    "type": "regular",
+    "rotation": 0
+  },
+  {
+    "x": 6,
+    "y": 9,
+    "difficulty": 2,
+    "type": "crimp",
+    "rotation": 0
+  },
+  {
+    "x": 6,
+    "y": 10,
+    "difficulty": 3,
+    "type": "regular",
+    "rotation": -45
+  },
+  {
+    "x": 6,
+    "y": 11,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": 0
+  },
+  {
+    "x": 6,
+    "y": 12,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": 90
+  },
+  {
+    "x": 6,
+    "y": 13,
+    "difficulty": 2,
+    "type": "crimp",
+    "rotation": -45
+  },
+  {
+    "x": 6,
+    "y": 14,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": 0
+  },
+  {
+    "x": 7,
+    "y": 0,
+    "difficulty": 3,
+    "type": "regular",
+    "rotation": 0
+  },
+  {
+    "x": 7,
+    "y": 1,
+    "difficulty": 2,
+    "type": "crimp",
+    "rotation": 0
+  },
+  {
+    "x": 7,
+    "y": 2,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": 135
+  },
+  {
+    "x": 7,
+    "y": 3,
+    "difficulty": 2,
+    "type": "crimp",
+    "rotation": 90
+  },
+  {
+    "x": 7,
+    "y": 4,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": 0
+  },
+  {
+    "x": 7,
+    "y": 5,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": 45
+  },
+  {
+    "x": 7,
+    "y": 6,
+    "difficulty": 3,
+    "type": "crimp",
+    "rotation": 45
+  },
+  {
+    "x": 7,
+    "y": 7,
+    "difficulty": 3,
+    "type": "crimp",
+    "rotation": -45
+  },
+  {
+    "x": 7,
+    "y": 8,
+    "difficulty": 4,
+    "type": "pinch",
+    "rotation": 180
+  },
+  {
+    "x": 7,
+    "y": 9,
+    "difficulty": 2,
+    "type": "jug",
+    "rotation": 135
+  },
+  {
+    "x": 7,
+    "y": 10,
+    "difficulty": 2,
+    "type": "crimp",
+    "rotation": 0
+  },
+  {
+    "x": 7,
+    "y": 11,
+    "difficulty": 3,
+    "type": "regular",
+    "rotation": 90
+  },
+  {
+    "x": 7,
+    "y": 12,
+    "difficulty": 3,
+    "type": "crimp",
+    "rotation": 0
+  },
+  {
+    "x": 7,
+    "y": 13,
+    "difficulty": 4,
+    "type": "sloper",
+    "rotation": 0
+  },
+  {
+    "x": 7,
+    "y": 14,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": 90
+  },
+  {
+    "x": 8,
+    "y": 0,
+    "difficulty": 3,
+    "type": "sloper",
+    "rotation": -45
+  },
+  {
+    "x": 8,
+    "y": 1,
+    "difficulty": 2,
+    "type": "crimp",
+    "rotation": -45
+  },
+  {
+    "x": 8,
+    "y": 2,
+    "difficulty": 4,
+    "type": "pinch",
+    "rotation": 180
+  },
+  {
+    "x": 8,
+    "y": 3,
+    "difficulty": 4,
+    "type": "crimp",
+    "rotation": 0
+  },
+  {
+    "x": 8,
+    "y": 4,
+    "difficulty": 3,
+    "type": "crimp",
+    "rotation": 0
+  },
+  {
+    "x": 8,
+    "y": 5,
+    "difficulty": 3,
+    "type": "regular",
+    "rotation": 0
+  },
+  {
+    "x": 8,
+    "y": 6,
+    "difficulty": 4,
+    "type": "pinch",
+    "rotation": 135
+  },
+  {
+    "x": 8,
+    "y": 7,
+    "difficulty": 4,
+    "type": "sloper",
+    "rotation": 0
+  },
+  {
+    "x": 8,
+    "y": 8,
+    "difficulty": 3,
+    "type": "crimp",
+    "rotation": 0
+  },
+  {
+    "x": 8,
+    "y": 9,
+    "difficulty": 2,
+    "type": "crimp",
+    "rotation": -45
+  },
+  {
+    "x": 8,
+    "y": 10,
+    "difficulty": 4,
+    "type": "crimp",
+    "rotation": 45
+  },
+  {
+    "x": 8,
+    "y": 11,
+    "difficulty": 4,
+    "type": "crimp",
+    "rotation": 0
+  },
+  {
+    "x": 8,
+    "y": 12,
+    "difficulty": 3,
+    "type": "regular",
+    "rotation": 0
+  },
+  {
+    "x": 8,
+    "y": 13,
+    "difficulty": 3,
+    "type": "crimp",
+    "rotation": 45
+  },
+  {
+    "x": 8,
+    "y": 14,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": 0
+  },
+  {
+    "x": 9,
+    "y": 0,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": 90
+  },
+  {
+    "x": 9,
+    "y": 1,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": 0
+  },
+  {
+    "x": 9,
+    "y": 2,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": 135
+  },
+  {
+    "x": 9,
+    "y": 3,
+    "difficulty": 3,
+    "type": "regular",
+    "rotation": -45
+  },
+  {
+    "x": 9,
+    "y": 4,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": 0
+  },
+  {
+    "x": 9,
+    "y": 5,
+    "difficulty": 3,
+    "type": "regular",
+    "rotation": 45
+  },
+  {
+    "x": 9,
+    "y": 6,
+    "difficulty": 2,
+    "type": "crimp",
+    "rotation": -45
+  },
+  {
+    "x": 9,
+    "y": 7,
+    "difficulty": 2,
+    "type": "jug",
+    "rotation": 135
+  },
+  {
+    "x": 9,
+    "y": 8,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": 0
+  },
+  {
+    "x": 9,
+    "y": 9,
+    "difficulty": 3,
+    "type": "sloper",
+    "rotation": 0
+  },
+  {
+    "x": 9,
+    "y": 10,
+    "difficulty": 3,
+    "type": "regular",
+    "rotation": 90
+  },
+  {
+    "x": 9,
+    "y": 11,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": -90
+  },
+  {
+    "x": 9,
+    "y": 12,
+    "difficulty": 4,
+    "type": "pinch",
+    "rotation": 135
+  },
+  {
+    "x": 9,
+    "y": 13,
+    "difficulty": 3,
+    "type": "regular",
+    "rotation": -45
+  },
+  {
+    "x": 9,
+    "y": 14,
+    "difficulty": 2,
+    "type": "jug",
+    "rotation": -90
+  },
+  {
+    "x": 10,
+    "y": 0,
+    "difficulty": 1,
+    "type": "jug",
+    "rotation": 45
+  },
+  {
+    "x": 10,
+    "y": 1,
+    "difficulty": 2,
+    "type": "crimp",
+    "rotation": -45
+  },
+  {
+    "x": 10,
+    "y": 2,
+    "difficulty": 3,
+    "type": "pinch",
+    "rotation": 45
+  },
+  {
+    "x": 10,
+    "y": 3,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": 0
+  },
+  {
+    "x": 10,
+    "y": 4,
+    "difficulty": 3,
+    "type": "regular",
+    "rotation": 45
+  },
+  {
+    "x": 10,
+    "y": 5,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": -45
+  },
+  {
+    "x": 10,
+    "y": 6,
+    "difficulty": 3,
+    "type": "regular",
+    "rotation": 45
+  },
+  {
+    "x": 10,
+    "y": 7,
+    "difficulty": 4,
+    "type": "crimp",
+    "rotation": 0
+  },
+  {
+    "x": 10,
+    "y": 8,
+    "difficulty": 3,
+    "type": "regular",
+    "rotation": 45
+  },
+  {
+    "x": 10,
+    "y": 9,
+    "difficulty": 2,
+    "type": "crimp",
+    "rotation": 0
+  },
+  {
+    "x": 10,
+    "y": 10,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": 0
+  },
+  {
+    "x": 10,
+    "y": 11,
+    "difficulty": 2,
+    "type": "regular",
+    "rotation": 0
+  },
+  {
+    "x": 10,
+    "y": 12,
+    "difficulty": 3,
+    "type": "pinch",
+    "rotation": 45
+  },
+  {
+    "x": 10,
+    "y": 13,
+    "difficulty": 4,
+    "type": "crimp",
+    "rotation": 0
+  },
+  {
+    "x": 10,
+    "y": 14,
+    "difficulty": 2,
+    "type": "crimp",
+    "rotation": 0
+  }
+]
