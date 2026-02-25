@@ -1,16 +1,67 @@
 """Routes API endpoints."""
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
-from app.database import get_supabase
+from app.database import get_supabase_admin
 from app.models import RouteResponse, PaginatedRoutes, RouteCreate, Hold
 
 router = APIRouter(prefix="/routes", tags=["routes"])
+
+
+def _attach_author_usernames(supabase, routes):
+    """Populate author_username from profiles using creator_id."""
+    if not routes:
+        return routes
+
+    creator_ids = list({r.get("creator_id") for r in routes if r.get("creator_id")})
+    username_by_id = {}
+
+    if creator_ids:
+        try:
+            profiles = (
+                supabase.table("profiles")
+                .select("id, username")
+                .in_("id", creator_ids)
+                .execute()
+            )
+            for profile in profiles.data or []:
+                username_by_id[profile["id"]] = profile.get("username")
+        except Exception:
+            # If bulk lookup fails, fallback to per-id lookups below.
+            pass
+
+        unresolved_ids = [cid for cid in creator_ids if cid not in username_by_id]
+        for creator_id in unresolved_ids:
+            try:
+                profile = (
+                    supabase.table("profiles")
+                    .select("username")
+                    .eq("id", creator_id)
+                    .limit(1)
+                    .execute()
+                )
+                username_by_id[creator_id] = profile.data[0].get("username") if profile and profile.data else None
+            except Exception:
+                username_by_id[creator_id] = None
+
+    for route in routes:
+        creator_id = route.get("creator_id")
+        fallback_username = (
+            route.get("author_username")
+            or route.get("authorUsername")
+            or route.get("setter_username")
+            or route.get("username")
+        )
+        route["author_username"] = username_by_id.get(creator_id) or fallback_username or "climber"
+
+    return routes
 
 
 @router.get("", response_model=PaginatedRoutes)
 async def list_routes(
     search: Optional[str] = Query(None, description="Filter by name (partial match)"),
     difficulty: Optional[str] = Query(None, description="Filter by grade (e.g., 'v5')"),
+    creator_id: Optional[str] = Query(None, description="Filter by creator user id"),
+    include_private: bool = Query(False, description="Include private routes when filtering by creator"),
     sort: str = Query("-created_at", description="Sort field. Prefix '-' for descending"),
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(20, ge=1, le=100, description="Results per page")
@@ -20,19 +71,25 @@ async def list_routes(
     
     Queries routes table and fetches holds separately.
     """
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
     
     # Query routes table directly
     query = supabase.table("routes").select("*", count="exact")
     
-    # Filter to public routes only
-    query = query.eq("visibility", "public")
+    # Default to public-only. Allow private routes only for creator-filtered queries.
+    if include_private and creator_id:
+        query = query.eq("creator_id", creator_id)
+    else:
+        query = query.eq("visibility", "public")
     
     if search:
         query = query.ilike("name", f"%{search}%")
     
     if difficulty:
         query = query.eq("difficulty", difficulty.lower())
+
+    if creator_id and not (include_private and creator_id):
+        query = query.eq("creator_id", creator_id)
     
     # Apply sorting
     if sort.startswith("-"):
@@ -53,6 +110,8 @@ async def list_routes(
         holds_response = supabase.table("route_holds").select("x, y, color").eq("route_id", route["id"]).order("position").execute()
         route["holds"] = holds_response.data or []
         routes_with_holds.append(route)
+
+    routes_with_holds = _attach_author_usernames(supabase, routes_with_holds)
     
     return PaginatedRoutes(
         items=routes_with_holds,
@@ -61,12 +120,83 @@ async def list_routes(
     )
 
 
+@router.get("/meta/saved")
+async def get_saved_routes(user_id: str = Query(..., description="User ID")):
+    """
+    Return full saved routes for a user (with holds + author username).
+    """
+    supabase = get_supabase_admin()
+
+    saved_res = (
+        supabase.table("user_saved_routes")
+        .select("route_id, saved_at")
+        .eq("user_id", user_id)
+        .order("saved_at", desc=True)
+        .execute()
+    )
+
+    saved_rows = saved_res.data or []
+    if not saved_rows:
+        return {"items": [], "total": 0}
+
+    route_ids = [row["route_id"] for row in saved_rows if row.get("route_id")]
+    if not route_ids:
+        return {"items": [], "total": 0}
+
+    routes_res = (
+        supabase.table("routes")
+        .select("*")
+        .in_("id", route_ids)
+        .execute()
+    )
+    routes = routes_res.data or []
+
+    routes_by_id = {r["id"]: r for r in routes if r.get("id")}
+    enriched = []
+    for row in saved_rows:
+        route_id = row.get("route_id")
+        route = routes_by_id.get(route_id)
+        if not route:
+            continue
+        holds_res = (
+            supabase.table("route_holds")
+            .select("x, y, color")
+            .eq("route_id", route_id)
+            .order("position")
+            .execute()
+        )
+        route["holds"] = holds_res.data or []
+        route["saved_at"] = row.get("saved_at")
+        enriched.append(route)
+
+    enriched = _attach_author_usernames(supabase, enriched)
+
+    return {"items": enriched, "total": len(enriched)}
+
+
+@router.get("/meta/sent_ids")
+async def get_sent_route_ids(user_id: str = Query(..., description="User ID")):
+    """
+    Return route IDs ascended by a user.
+    """
+    supabase = get_supabase_admin()
+
+    sent_res = (
+        supabase.table("sends")
+        .select("route_id")
+        .eq("user_id", user_id)
+        .execute()
+    )
+    route_ids = [row["route_id"] for row in (sent_res.data or []) if row.get("route_id")]
+    return {"route_ids": route_ids}
+
+
 @router.get("/{route_id}", response_model=RouteResponse)
 async def get_route(route_id: str):
     """
     Get a single route by ID with its holds.
     """
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
     
     # Get route - use limit(1) and handle potential None/errors
     try:
@@ -88,6 +218,7 @@ async def get_route(route_id: str):
     # Get holds for this route
     holds_response = supabase.table("route_holds").select("x, y, color").eq("route_id", route_id).order("position").execute()
     route_data["holds"] = holds_response.data if holds_response else []
+    route_data = _attach_author_usernames(supabase, [route_data])[0]
     
     return route_data
 
@@ -103,7 +234,7 @@ async def create_route(route: RouteCreate):
     
     TODO: Add authentication - creator_id should come from auth token
     """
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
     
     # 1. Create the route (without holds - they go in separate table)
     route_data = {
@@ -112,6 +243,7 @@ async def create_route(route: RouteCreate):
         "description": route.description,
         "angle": route.angle,
         "visibility": route.visibility,
+        "creator_id": route.creator_id,
         "send_count": 0
     }
     
@@ -142,16 +274,15 @@ async def create_route(route: RouteCreate):
             supabase.table("routes").delete().eq("id", new_route_id).execute()
             raise HTTPException(status_code=500, detail="Failed to create holds")
     
-    # 3. Fetch and return from view (includes holds as JSONB)
-    final_response = (
-        supabase.table("routes_with_holds")
-        .select("*")
-        .eq("id", new_route_id)
-        .single()
-        .execute()
-    )
-    
-    return final_response.data
+    # 3. Return created route from base tables (avoid view permission dependency)
+    created_route = route_response.data[0]
+    created_route["holds"] = [
+        {"x": hold.x, "y": hold.y, "color": hold.color}
+        for hold in route.holds
+    ] if route.holds else []
+    created_route = _attach_author_usernames(supabase, [created_route])[0]
+
+    return created_route
 
 
 @router.delete("/{route_id}", status_code=200)
@@ -161,7 +292,7 @@ async def delete_route(route_id: str, user_id: str = Query(None, description="Us
     
     TODO: Add auth - only route creator or admin should be able to delete
     """
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
     
     # Check if route exists - handle potential None/errors
     try:
@@ -196,7 +327,7 @@ async def save_route(route_id: str, user_id: str = Query(..., description="User 
     
     TODO: Get user_id from auth token instead of query param
     """
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
     
     # Check if route exists - handle potential None/errors
     try:
@@ -235,7 +366,7 @@ async def unsave_route(route_id: str, user_id: str = Query(..., description="Use
     """
     Remove a saved/bookmarked route.
     """
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
     
     supabase.table("user_saved_routes").delete().eq("user_id", user_id).eq("route_id", route_id).execute()
     
@@ -251,7 +382,7 @@ async def send_route(route_id: str, user_id: str = Query(..., description="User 
 
     TODO: Get user_id from auth token instead of query param
     """
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
 
     # Check if route exists and get current send_count
     try:
@@ -291,7 +422,7 @@ async def unsend_route(route_id: str, user_id: str = Query(..., description="Use
     """
     Remove a send (unmark route completion).
     """
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
 
     # Get current send_count
     try:

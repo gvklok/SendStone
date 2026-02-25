@@ -24,3 +24,15 @@ def get_supabase_admin() -> Client:
         settings.supabase_service_key
     )
     return client.schema("v2")
+
+
+def get_supabase_admin_raw() -> Client:
+    """Get Supabase admin client without forcing a schema.
+
+    Useful when tables/views live outside the v2 schema.
+    """
+    settings = get_settings()
+    return create_client(
+        settings.supabase_url,
+        settings.supabase_service_key
+    )

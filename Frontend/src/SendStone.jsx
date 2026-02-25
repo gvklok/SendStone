@@ -1,35 +1,225 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Navigation from './components/layout/Navigation';
-import Header from './components/layout/Header';
-import MobileMenu from './components/layout/MobileMenu';
 import MobileBottomNav from './components/layout/MobileBottomNav';
 import HomePage from './components/pages/HomePage';
 import CreatePage from './components/pages/CreatePage';
 import ExplorePage from './components/pages/ExplorePage';
 import SavedPage from './components/pages/SavedPage';
 import ProfilePage from './components/pages/ProfilePage';
+import YourRoutesPage from './components/pages/YourRoutesPage';
 import AuthModal from './components/common/AuthModal';
+import { Mountain, X } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
 // Kick off background prefetch of popular routes on app boot
 import './routeCache';
 
+const LOGIN_POPUP_SESSION_KEY = 'sendstone_login_popup_shown';
+const LOGIN_SESSION_COUNTED_KEY = 'sendstone_login_session_counted';
+const THEME_STORAGE_KEY = 'sendstone_theme';
+const SIDEBAR_PINNED_KEY = 'sendstone_sidebar_pinned';
+const TEXT_SIZE_STORAGE_KEY = 'sendstone_text_size';
+
 export default function ClimbingBoardApp() {
   const [activeTab, setActiveTab] = useState('home');
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarPinned, setSidebarPinned] = useState(false);
+  const [theme, setTheme] = useState('light');
+  const [textSize, setTextSize] = useState('small');
   const [showAuth, setShowAuth] = useState(false);
   const [pendingTab, setPendingTab] = useState(null);
   const [user, setUser] = useState(null);
   const [authError, setAuthError] = useState('');
+  const [authStatusPopup, setAuthStatusPopup] = useState(null);
   const [publicProblems, setPublicProblems] = useState([]);
   const [savedProblems, setSavedProblems] = useState([]);
   const [likedProblems, setLikedProblems] = useState([]);
   const [recentOpenedIds, setRecentOpenedIds] = useState([]);
+  const [recentOpenedPosts, setRecentOpenedPosts] = useState([]);
   const [openPostId, setOpenPostId] = useState(null);
+  const [dashboardStats, setDashboardStats] = useState({
+    problems_created: null,
+    successful_ascensions: null,
+    sessions: null,
+    max_grade: null,
+    saved_climbs: null,
+    community_ascensions: null,
+  });
+  const hasActiveLoginSessionRef = useRef(false);
 
-  const restrictedTabs = ['create', 'profile', 'saved'];
+  const restrictedTabs = ['create', 'profile', 'saved', 'yourRoutes'];
+  const normalizeUiSettings = (settings) => {
+    if (!settings || typeof settings !== 'object') return null;
+    return {
+      theme: settings.theme === 'dark' ? 'dark' : 'light',
+      sidebarPinned: settings.sidebarPinned === true,
+      textSize: settings.textSize === 'large' ? 'large' : 'small',
+    };
+  };
+  const applyUiSettings = (settings) => {
+    const normalized = normalizeUiSettings(settings);
+    if (!normalized) return;
+    setTheme(normalized.theme);
+    setSidebarPinned(normalized.sidebarPinned);
+    setTextSize(normalized.textSize);
+    setSidebarOpen(normalized.sidebarPinned);
+  };
+  const persistUiSettingsToAccount = async (nextSettings) => {
+    if (!user?.id) return;
+    try {
+      const { data } = await supabase.auth.getUser();
+      const currentMetadata = data?.user?.user_metadata || {};
+      await supabase.auth.updateUser({
+        data: {
+          ...currentMetadata,
+          ui_settings: {
+            theme: nextSettings.theme,
+            sidebarPinned: nextSettings.sidebarPinned,
+            textSize: nextSettings.textSize,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Failed to persist user UI settings:', error);
+    }
+  };
+  const updateUiSettings = (partial) => {
+    const nextSettings = {
+      theme,
+      sidebarPinned,
+      textSize,
+      ...partial,
+    };
+    applyUiSettings(nextSettings);
+    persistUiSettingsToAccount(nextSettings);
+  };
+  const hasShownLoginPopupThisSession = () => {
+    try {
+      return sessionStorage.getItem(LOGIN_POPUP_SESSION_KEY) === '1';
+    } catch {
+      return false;
+    }
+  };
+  const markLoginPopupShownThisSession = () => {
+    try {
+      sessionStorage.setItem(LOGIN_POPUP_SESSION_KEY, '1');
+    } catch {
+      // ignore storage failures
+    }
+  };
+  const clearLoginPopupSessionMarker = () => {
+    try {
+      sessionStorage.removeItem(LOGIN_POPUP_SESSION_KEY);
+    } catch {
+      // ignore storage failures
+    }
+  };
+  const hasCountedCurrentSession = () => {
+    try {
+      return sessionStorage.getItem(LOGIN_SESSION_COUNTED_KEY) === '1';
+    } catch {
+      return false;
+    }
+  };
+  const markCurrentSessionCounted = () => {
+    try {
+      sessionStorage.setItem(LOGIN_SESSION_COUNTED_KEY, '1');
+    } catch {
+      // ignore
+    }
+  };
+  const clearCurrentSessionCounted = () => {
+    try {
+      sessionStorage.removeItem(LOGIN_SESSION_COUNTED_KEY);
+    } catch {
+      // ignore
+    }
+  };
+  const fetchDashboardStats = async (userId) => {
+    if (!userId) return;
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/profiles/${encodeURIComponent(userId)}/dashboard`);
+      if (!res.ok) throw new Error(`Failed stats fetch: ${res.status}`);
+      const data = await res.json();
+      setDashboardStats({
+        problems_created: data.problems_created ?? 0,
+        successful_ascensions: data.successful_ascensions ?? 0,
+        sessions: data.sessions ?? 0,
+        max_grade: data.max_grade ?? '-',
+        saved_climbs: data.saved_climbs ?? 0,
+        community_ascensions: data.community_ascensions ?? 0,
+      });
+    } catch (error) {
+      setDashboardStats({
+        problems_created: 0,
+        successful_ascensions: 0,
+        sessions: 0,
+        max_grade: '-',
+        saved_climbs: 0,
+        community_ascensions: 0,
+      });
+    }
+  };
+  const logLoginSession = async (userId) => {
+    if (!userId) return;
+    try {
+      await fetch(`http://127.0.0.1:8000/profiles/${encodeURIComponent(userId)}/sessions`, {
+        method: 'POST',
+      });
+    } catch {
+      // ignore logging failures
+    }
+  };
+  const hydrateUserEngagement = async (userData) => {
+    if (!userData?.id || !userData?.email) return;
+    try {
+      const [savedRes, sentRes] = await Promise.all([
+        fetch(`http://127.0.0.1:8000/routes/meta/saved?user_id=${encodeURIComponent(userData.id)}`),
+        fetch(`http://127.0.0.1:8000/routes/meta/sent_ids?user_id=${encodeURIComponent(userData.id)}`),
+      ]);
 
+      if (savedRes.ok) {
+        const savedData = await savedRes.json();
+        const savedItems = (savedData.items || []).map((route) => ({
+          id: route.id,
+          name: route.name,
+          grade: route.difficulty?.toUpperCase() || 'V0',
+          sends: route.send_count || 0,
+          holds: route.holds || [],
+          angle: route.angle,
+          description: route.description || '',
+          savedDate: route.saved_at || new Date().toISOString(),
+          userEmail: userData.email,
+          authorName: route.author_name || 'Anonymous',
+          authorUsername:
+            route.author_username ||
+            route.authorUsername ||
+            route.setter_username ||
+            route.username ||
+            'climber',
+        }));
+        setSavedProblems((prev) => {
+          const others = prev.filter((p) => p.userEmail !== userData.email);
+          return [...savedItems, ...others];
+        });
+      }
+
+      if (sentRes.ok) {
+        const sentData = await sentRes.json();
+        const sentIds = (sentData.route_ids || []).map((id) => `${userData.email}::${String(id)}`);
+        setLikedProblems((prev) => {
+          const modernPrefix = `${userData.email}::`;
+          const legacyPrefix = `${userData.email}-`;
+          const others = prev.filter(
+            (k) => !k.startsWith(modernPrefix) && !k.startsWith(legacyPrefix)
+          );
+          return [...others, ...sentIds];
+        });
+      }
+    } catch (error) {
+      console.error('Failed to hydrate user engagement:', error);
+    }
+  };
   // Sync user profile to profiles table via backend API
   const syncProfileToDatabase = async (userId, userData) => {
     try {
@@ -60,56 +250,173 @@ export default function ClimbingBoardApp() {
 
   // Listen for Supabase auth state changes (handles OAuth callback)
   useEffect(() => {
-    // Check current session on mount
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    let mounted = true;
+    let subscription = null;
+
+    const toUserData = (supaUser) => ({
+      id: supaUser.id,
+      email: supaUser.email,
+      name: supaUser.user_metadata?.name || supaUser.user_metadata?.full_name || supaUser.email.split('@')[0],
+      username: supaUser.user_metadata?.username || supaUser.email.split('@')[0],
+      climbingLevel: supaUser.user_metadata?.climbingLevel || 'beginner',
+      photoData: supaUser.user_metadata?.photoData || supaUser.user_metadata?.avatar_url || null,
+      uiSettings:
+        normalizeUiSettings(supaUser.user_metadata?.ui_settings) ||
+        normalizeUiSettings(supaUser.user_metadata?.uiSettings),
+    });
+
+    const initAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!mounted) return;
+
       if (session?.user) {
         const supaUser = session.user;
-        const userData = {
-          email: supaUser.email,
-          name: supaUser.user_metadata?.name || supaUser.user_metadata?.full_name || supaUser.email.split('@')[0],
-          username: supaUser.user_metadata?.username || supaUser.email.split('@')[0],
-          climbingLevel: supaUser.user_metadata?.climbingLevel || 'beginner',
-          photoData: supaUser.user_metadata?.photoData || supaUser.user_metadata?.avatar_url || null,
-        };
+        const userData = toUserData(supaUser);
         setUser(userData);
-        // Sync to profiles table
+        if (userData.uiSettings) {
+          applyUiSettings(userData.uiSettings);
+        }
+        if (!hasCountedCurrentSession()) {
+          logLoginSession(supaUser.id);
+          markCurrentSessionCounted();
+        }
+        hasActiveLoginSessionRef.current = true;
         syncProfileToDatabase(supaUser.id, userData);
+        hydrateUserEngagement(userData);
+        fetchDashboardStats(supaUser.id);
       } else {
         setUser(null);
+        setSavedProblems([]);
+        setLikedProblems([]);
+        setDashboardStats({
+          problems_created: null,
+          successful_ascensions: null,
+          sessions: null,
+          max_grade: null,
+          saved_climbs: null,
+          community_ascensions: null,
+        });
+        hasActiveLoginSessionRef.current = false;
       }
-    });
 
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user && _event !== 'SIGNED_OUT') {
-        const supaUser = session.user;
-        const userData = {
-          email: supaUser.email,
-          name: supaUser.user_metadata?.name || supaUser.user_metadata?.full_name || supaUser.email.split('@')[0],
-          username: supaUser.user_metadata?.username || supaUser.email.split('@')[0],
-          climbingLevel: supaUser.user_metadata?.climbingLevel || 'beginner',
-          photoData: supaUser.user_metadata?.photoData || supaUser.user_metadata?.avatar_url || null,
-        };
-        setUser(userData);
-        // Sync to profiles table (important for OAuth flows)
-        syncProfileToDatabase(supaUser.id, userData);
-      } else if (_event === 'SIGNED_OUT') {
-        setUser(null);
-        setActiveTab('home');
-      }
-    });
+      const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+        if (!mounted) return;
 
-    return () => subscription.unsubscribe();
+        if (nextSession?.user && _event !== 'SIGNED_OUT') {
+          const supaUser = nextSession.user;
+          const userData = toUserData(supaUser);
+          setUser(userData);
+          if (userData.uiSettings) {
+            applyUiSettings(userData.uiSettings);
+          }
+          if (
+            _event === 'SIGNED_IN' &&
+            !hasActiveLoginSessionRef.current &&
+            !hasShownLoginPopupThisSession()
+          ) {
+            setAuthStatusPopup('login');
+            markLoginPopupShownThisSession();
+          }
+          if (_event === 'SIGNED_IN' && !hasActiveLoginSessionRef.current) {
+            if (!hasCountedCurrentSession()) {
+              logLoginSession(supaUser.id);
+              markCurrentSessionCounted();
+            }
+          }
+          fetchDashboardStats(supaUser.id);
+          hasActiveLoginSessionRef.current = true;
+          syncProfileToDatabase(supaUser.id, userData);
+          hydrateUserEngagement(userData);
+        } else if (_event === 'SIGNED_OUT') {
+          setUser(null);
+          setSavedProblems([]);
+          setLikedProblems([]);
+          setDashboardStats({
+            problems_created: null,
+            successful_ascensions: null,
+            sessions: null,
+            max_grade: null,
+            saved_climbs: null,
+            community_ascensions: null,
+          });
+          hasActiveLoginSessionRef.current = false;
+          clearLoginPopupSessionMarker();
+          clearCurrentSessionCounted();
+          setActiveTab('home');
+          setAuthStatusPopup('logout');
+        }
+      });
+
+      subscription = data.subscription;
+    };
+
+    initAuth();
+
+    return () => {
+      mounted = false;
+      subscription?.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
     try {
+      const storedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+      const storedPinned = localStorage.getItem(SIDEBAR_PINNED_KEY);
+      const storedTextSize = localStorage.getItem(TEXT_SIZE_STORAGE_KEY);
+      setTheme(storedTheme === 'dark' ? 'dark' : 'light');
+      setSidebarPinned(storedPinned === '1');
+      setTextSize(storedTextSize === 'large' ? 'large' : 'small');
+      setSidebarOpen(storedPinned === '1');
+    } catch {
+      setTheme('light');
+      setSidebarPinned(false);
+      setTextSize('small');
+      setSidebarOpen(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch {
+      // ignore
+    }
+    const root = document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('sendstone-dark');
+    } else {
+      root.classList.remove('sendstone-dark');
+    }
+  }, [theme]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(TEXT_SIZE_STORAGE_KEY, textSize);
+    } catch {
+      // ignore
+    }
+    const root = document.documentElement;
+    if (textSize === 'large') {
+      root.classList.add('sendstone-text-large');
+    } else {
+      root.classList.remove('sendstone-text-large');
+    }
+  }, [textSize]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SIDEBAR_PINNED_KEY, sidebarPinned ? '1' : '0');
+    } catch {
+      // ignore
+    }
+    if (sidebarPinned) setSidebarOpen(true);
+  }, [sidebarPinned]);
+
+  useEffect(() => {
+    try {
       const storedPublic = JSON.parse(localStorage.getItem('sendstonePublicProblems') || '[]');
-      const storedSaved = JSON.parse(localStorage.getItem('sendstoneSavedProblems') || '[]');
-      const storedLiked = JSON.parse(localStorage.getItem('sendstoneLikedProblems') || '[]');
       const storedRecent = JSON.parse(localStorage.getItem('sendstoneRecentOpened') || '[]');
+      const storedRecentPosts = JSON.parse(localStorage.getItem('sendstoneRecentOpenedPosts') || '[]');
       setPublicProblems(
         storedPublic.length
           ? storedPublic
@@ -120,14 +427,16 @@ export default function ClimbingBoardApp() {
               { id: 28, grade: 'V8', sends: 42, name: 'Crimp Reaper' },
           ]
       );
-      setSavedProblems(storedSaved);
-      setLikedProblems(storedLiked);
+      setSavedProblems([]);
+      setLikedProblems([]);
       setRecentOpenedIds(storedRecent);
+      setRecentOpenedPosts(storedRecentPosts);
     } catch (e) {
       setPublicProblems([]);
       setSavedProblems([]);
       setLikedProblems([]);
       setRecentOpenedIds([]);
+      setRecentOpenedPosts([]);
     }
   }, []);
 
@@ -141,27 +450,19 @@ export default function ClimbingBoardApp() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('sendstoneSavedProblems', JSON.stringify(savedProblems));
-    } catch (e) {
-      // ignore
-    }
-  }, [savedProblems]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('sendstoneLikedProblems', JSON.stringify(likedProblems));
-    } catch (e) {
-      // ignore
-    }
-  }, [likedProblems]);
-
-  useEffect(() => {
-    try {
       localStorage.setItem('sendstoneRecentOpened', JSON.stringify(recentOpenedIds));
     } catch (e) {
       // ignore
     }
   }, [recentOpenedIds]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('sendstoneRecentOpenedPosts', JSON.stringify(recentOpenedPosts));
+    } catch (e) {
+      // ignore
+    }
+  }, [recentOpenedPosts]);
 
   const requestTabChange = (tabName) => {
     if (restrictedTabs.includes(tabName) && !user) {
@@ -195,6 +496,73 @@ export default function ClimbingBoardApp() {
     }
   };
 
+  const handleUpdateProfilePhoto = async (file) => {
+    if (!user?.id || !file) return { ok: false, error: 'No user or file selected.' };
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch(`http://127.0.0.1:8000/profiles/${encodeURIComponent(user.id)}/photo`, {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || `Upload failed (${res.status})`);
+
+      const newPhoto = data.photo_url || null;
+      setUser((prev) => (prev ? { ...prev, photoData: newPhoto } : prev));
+
+      try {
+        await supabase.auth.updateUser({
+          data: {
+            photoData: newPhoto,
+            avatar_url: newPhoto,
+          },
+        });
+      } catch {
+        // ignore metadata sync failure
+      }
+
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: error.message || 'Failed to update profile photo.' };
+    }
+  };
+
+  const handleUpdateEmail = async (newEmail) => {
+    if (!user?.id) return { ok: false, error: 'Not logged in.' };
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/profiles/${encodeURIComponent(user.id)}/email`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: newEmail }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || `Email update failed (${res.status})`);
+
+      setUser((prev) => (prev ? { ...prev, email: data.email || newEmail } : prev));
+      return { ok: true, authUpdated: Boolean(data.auth_updated), authError: data.auth_error || null };
+    } catch (error) {
+      return { ok: false, error: error.message || 'Failed to update email.' };
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!user?.id) return { ok: false, error: 'Not logged in.' };
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/profiles/${encodeURIComponent(user.id)}/account`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || `Delete failed (${res.status})`);
+
+      await supabase.auth.signOut();
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: error.message || 'Failed to delete account.' };
+    }
+  };
+
   const handlePostProblem = async (problem) => {
     if (!user) return;
 
@@ -210,6 +578,7 @@ export default function ClimbingBoardApp() {
           holds: problem.holds || [],
           angle: problem.angle || 40,
           visibility: 'public',
+          creator_id: user.id || null,
         }),
       });
 
@@ -235,46 +604,117 @@ export default function ClimbingBoardApp() {
         authorUsername: user.username || user.email || 'climber',
       };
       setPublicProblems((prev) => [newProblem, ...prev]);
+      fetchDashboardStats(user.id);
     } catch (err) {
       console.error('Error posting route:', err);
       alert('Failed to post route. Is the backend running?');
     }
   };
 
-  const handleSaveProblem = (problem) => {
+  const handleSaveProblem = async (problem) => {
     if (!user) return;
-    const newProblem = {
-      ...problem,
-      id: Date.now(),
-      savedDate: new Date().toISOString(),
-      userEmail: user.email,
-      holds: problem.holds || [],
-      authorName: user.name || 'Anonymous',
-      authorUsername: user.username || user.email || 'climber',
-    };
-    setSavedProblems((prev) => [newProblem, ...prev]);
+
+    try {
+      const res = await fetch('http://127.0.0.1:8000/routes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: problem.name || 'Untitled Problem',
+          difficulty: problem.difficulty || 'v0',
+          description: problem.description || '',
+          holds: problem.holds || [],
+          angle: problem.angle || 40,
+          visibility: 'private',
+          creator_id: user.id || null,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        console.error('Failed to save private route:', err);
+        alert(`Failed to save route: ${err.detail || res.status}`);
+        return;
+      }
+
+      const savedRoute = await res.json();
+      console.log('Private route saved successfully:', savedRoute);
+      fetchDashboardStats(user.id);
+    } catch (err) {
+      console.error('Error saving private route:', err);
+      alert('Failed to save route. Is the backend running?');
+    }
   };
 
-  const handleToggleSaveFromExplore = (problemId) => {
+  const handleToggleSaveFromExplore = async (problemId) => {
     if (!user) {
       setPendingTab('saved');
       setShowAuth(true);
       return;
     }
-    const target = publicProblems.find((p) => p.id === problemId);
-    if (!target) return;
-    const existing = savedProblems.find((p) => p.userEmail === user.email && p.id === problemId);
-    if (existing) {
-      setSavedProblems((prev) => prev.filter((p) => !(p.userEmail === user.email && p.id === problemId)));
-    } else {
+    const routeId = String(problemId);
+    const existing = savedProblems.find(
+      (p) => p.userEmail === user.email && String(p.id) === routeId
+    );
+
+    try {
+      const endpoint = `http://127.0.0.1:8000/routes/${encodeURIComponent(routeId)}/save?user_id=${encodeURIComponent(user.id)}`;
+
+      if (existing) {
+        const res = await fetch(endpoint, { method: 'DELETE' });
+        if (!res.ok) {
+          throw new Error(`Failed unsave: ${res.status}`);
+        }
+        setSavedProblems((prev) =>
+          prev.filter((p) => !(p.userEmail === user.email && String(p.id) === routeId))
+        );
+        fetchDashboardStats(user.id);
+        return { saved: false };
+      }
+
+      const saveRes = await fetch(endpoint, { method: 'PUT' });
+      if (!saveRes.ok) {
+        throw new Error(`Failed save: ${saveRes.status}`);
+      }
+
+      let routeData = publicProblems.find((p) => String(p.id) === routeId) || null;
+      try {
+        const routeRes = await fetch(`http://127.0.0.1:8000/routes/${encodeURIComponent(routeId)}`);
+        if (routeRes.ok) {
+          routeData = await routeRes.json();
+        }
+      } catch (e) {
+        // fallback to local data when route details fetch fails
+      }
+
+      if (!routeData) {
+        throw new Error('Route data unavailable after save');
+      }
+
       const newProblem = {
-        ...target,
+        id: routeData.id,
+        name: routeData.name,
+        grade: routeData.grade || routeData.difficulty?.toUpperCase() || 'V0',
+        sends: routeData.sends ?? routeData.send_count ?? 0,
+        holds: routeData.holds || [],
+        angle: routeData.angle,
+        description: routeData.description || '',
         savedDate: new Date().toISOString(),
         userEmail: user.email,
-        authorName: target.authorName,
-        authorUsername: target.authorUsername,
+        authorName: routeData.authorName || routeData.author_name || 'Anonymous',
+        authorUsername:
+          routeData.authorUsername ||
+          routeData.author_username ||
+          routeData.setter_username ||
+          routeData.username ||
+          'climber',
       };
       setSavedProblems((prev) => [newProblem, ...prev]);
+      fetchDashboardStats(user.id);
+      return { saved: true };
+    } catch (error) {
+      console.error('Error toggling save:', error);
+      alert('Failed to update saved route. Please try again.');
+      return null;
     }
   };
 
@@ -284,53 +724,107 @@ export default function ClimbingBoardApp() {
       setShowAuth(true);
       return;
     }
-    const likedKey = `${user.email}-${problemId}`;
-    const alreadyLiked = likedProblems.includes(likedKey);
+    const routeId = String(problemId);
+    const modernKey = `${user.email}::${routeId}`;
+    const legacyKey = `${user.email}-${routeId}`;
+    const alreadyLiked = likedProblems.includes(modernKey) || likedProblems.includes(legacyKey);
 
-    if (alreadyLiked) {
-      setLikedProblems((prev) => prev.filter((k) => k !== likedKey));
-      setPublicProblems((prev) =>
-        prev.map((p) =>
-          p.id === problemId ? { ...p, sends: Math.max((p.sends || 1) - 1, 0) } : p
-        )
-      );
-    } else {
-      setLikedProblems((prev) => [...prev, likedKey]);
-      setPublicProblems((prev) =>
-        prev.map((p) => (p.id === problemId ? { ...p, sends: (p.sends || 0) + 1 } : p))
-      );
-    }
+    const syncSend = async () => {
+      try {
+        const url = `http://127.0.0.1:8000/routes/${encodeURIComponent(routeId)}/send?user_id=${encodeURIComponent(user.id)}`;
+        const res = await fetch(url, {
+          method: alreadyLiked ? 'DELETE' : 'PUT',
+        });
+
+        if (!res.ok) {
+          throw new Error(`Failed send toggle: ${res.status}`);
+        }
+
+        const data = await res.json();
+        const sendCount = typeof data.send_count === 'number' ? data.send_count : null;
+
+        if (alreadyLiked) {
+          setLikedProblems((prev) => prev.filter((k) => k !== modernKey && k !== legacyKey));
+        } else {
+          setLikedProblems((prev) => [...prev.filter((k) => k !== legacyKey), modernKey]);
+        }
+
+        if (sendCount !== null) {
+          setPublicProblems((prev) =>
+            prev.map((p) => (String(p.id) === routeId ? { ...p, sends: sendCount } : p))
+          );
+          setSavedProblems((prev) =>
+            prev.map((p) => (String(p.id) === routeId ? { ...p, sends: sendCount } : p))
+          );
+        }
+        fetchDashboardStats(user.id);
+
+        return { liked: !alreadyLiked, sendCount };
+      } catch (error) {
+        console.error('Error toggling send:', error);
+        alert('Failed to update ascent. Please try again.');
+        return null;
+      }
+    };
+
+    return syncSend();
   };
 
-  const recordOpenPost = (postId) => {
-    setRecentOpenedIds((prev) => [postId, ...prev.filter((id) => id !== postId)].slice(0, 6));
+  const recordOpenPost = (postOrId) => {
+    const openedPost = postOrId && typeof postOrId === 'object' ? postOrId : null;
+    const postId = openedPost ? openedPost.id : postOrId;
+    if (!postId) return;
+
+    setRecentOpenedIds((prev) => [postId, ...prev.filter((id) => id !== postId)].slice(0, 4));
+
+    setRecentOpenedPosts((prev) => {
+      if (openedPost) {
+        const normalized = { ...openedPost, id: postId };
+        return [normalized, ...prev.filter((p) => p.id !== postId)].slice(0, 4);
+      }
+      const existing = prev.find((p) => p.id === postId);
+      if (existing) {
+        return [existing, ...prev.filter((p) => p.id !== postId)].slice(0, 4);
+      }
+      const fromPublic = publicProblems.find((p) => p.id === postId);
+      if (fromPublic) {
+        return [fromPublic, ...prev.filter((p) => p.id !== postId)].slice(0, 4);
+      }
+      return prev;
+    });
   };
 
-  const recentPosts = recentOpenedIds
-    .map((id) => publicProblems.find((p) => p.id === id))
-    .filter(Boolean);
+  const recentPosts = recentOpenedPosts.length
+    ? recentOpenedPosts.slice(0, 4)
+    : recentOpenedIds
+        .map((id) => publicProblems.find((p) => p.id === id))
+        .filter(Boolean)
+        .slice(0, 4);
 
   const userSavedProblems = savedProblems.filter((p) => p.userEmail === user?.email);
+  const userLikedIds = user
+    ? new Set(
+        likedProblems
+          .map((k) => {
+            const modernPrefix = `${user.email}::`;
+            const legacyPrefix = `${user.email}-`;
+            if (k.startsWith(modernPrefix)) return k.slice(modernPrefix.length);
+            if (k.startsWith(legacyPrefix)) return k.slice(legacyPrefix.length);
+            return null;
+          })
+          .filter(Boolean)
+      )
+    : new Set();
 
   return (
-    <div className="h-screen flex flex-col bg-neutral-100">
+    <div className={`h-screen flex flex-col bg-neutral-100 ${sidebarPinned ? 'md:pr-[116px]' : ''}`}>
       {/* Desktop Navigation */}
       <Navigation 
         activeTab={activeTab} 
         setActiveTab={requestTabChange}
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
-      />
-
-      {/* Mobile Header */}
-      <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} />
-
-      {/* Mobile Menu Overlay */}
-      <MobileMenu 
-        mobileMenuOpen={mobileMenuOpen} 
-        setMobileMenuOpen={setMobileMenuOpen}
-        activeTab={activeTab}
-        setActiveTab={requestTabChange}
+        sidebarPinned={sidebarPinned}
       />
 
       {/* Content Area */}
@@ -338,7 +832,7 @@ export default function ClimbingBoardApp() {
         <HomePage
           user={user}
           publicProblems={publicProblems}
-          likedProblems={likedProblems}
+          dashboardStats={dashboardStats}
           recentPosts={recentPosts}
           onOpenRecent={(id) => {
             recordOpenPost(id);
@@ -353,23 +847,54 @@ export default function ClimbingBoardApp() {
           problems={publicProblems}
           onSave={handleToggleSaveFromExplore}
           onSend={handleSendProblem}
-          savedIds={new Set(userSavedProblems.map((p) => p.id))}
-          likedIds={
-            user
-              ? new Set(
-                  likedProblems
-                    .filter((k) => k.startsWith(`${user.email}-`))
-                    .map((k) => Number(k.split('-')[1]))
-                )
-              : new Set()
-          }
+          savedIds={new Set(userSavedProblems.map((p) => String(p.id)))}
+          likedIds={userLikedIds}
           openPostId={openPostId}
           clearOpenPost={() => setOpenPostId(null)}
           onOpenPost={recordOpenPost}
         />
       )}
-      {activeTab === 'saved' && <SavedPage savedProblems={userSavedProblems} />}
-      {activeTab === 'profile' && <ProfilePage user={user} onSignOut={handleSignOut} />}
+      {activeTab === 'saved' && (
+        <SavedPage
+          savedProblems={userSavedProblems}
+          user={user}
+          onSend={handleSendProblem}
+          onSave={handleToggleSaveFromExplore}
+          likedIds={userLikedIds}
+          onOpenPost={recordOpenPost}
+        />
+      )}
+      {activeTab === 'yourRoutes' && (
+        <YourRoutesPage
+          user={user}
+          onSave={handleToggleSaveFromExplore}
+          onSend={handleSendProblem}
+          savedIds={new Set(userSavedProblems.map((p) => String(p.id)))}
+          likedIds={userLikedIds}
+          onOpenPost={recordOpenPost}
+        />
+      )}
+      {activeTab === 'profile' && (
+        <ProfilePage
+          user={user}
+          onSignOut={handleSignOut}
+          onUpdateProfilePhoto={handleUpdateProfilePhoto}
+          onUpdateEmail={handleUpdateEmail}
+          onDeleteAccount={handleDeleteAccount}
+          theme={theme}
+          onToggleTheme={() =>
+            updateUiSettings({ theme: theme === 'dark' ? 'light' : 'dark' })
+          }
+          textSize={textSize}
+          onToggleTextSize={() =>
+            updateUiSettings({ textSize: textSize === 'large' ? 'small' : 'large' })
+          }
+          sidebarPinned={sidebarPinned}
+          onToggleSidebarPinned={() =>
+            updateUiSettings({ sidebarPinned: !sidebarPinned })
+          }
+        />
+      )}
 
       {/* Mobile Bottom Navigation */}
       <MobileBottomNav activeTab={activeTab} setActiveTab={requestTabChange} />
@@ -381,6 +906,34 @@ export default function ClimbingBoardApp() {
         targetTab={pendingTab}
         externalError={authError}
       />
+
+      {authStatusPopup && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-2">
+          <div className="relative bg-white border-2 border-gray-900 shadow-2xl w-full h-[85vh] max-w-6xl flex flex-col items-center justify-center gap-6 px-4 md:px-6 text-center">
+            <button
+              onClick={() => setAuthStatusPopup(null)}
+              className="absolute top-4 right-4 p-2 border-2 border-gray-900 hover:bg-gray-100 transition-colors"
+              aria-label="Close status popup"
+            >
+              <X size={24} strokeWidth={2.8} />
+            </button>
+            <Mountain className="sendstone-auth-popup-mountain" size={130} strokeWidth={2.6} />
+            <p className="font-black uppercase tracking-wide text-gray-900 text-2xl md:text-4xl leading-tight max-w-none">
+              {authStatusPopup === 'login' ? (
+                <>
+                  <span className="block md:whitespace-nowrap">You have successfully logged in.</span>
+                  <span className="block">Get climbing!</span>
+                </>
+              ) : (
+                <>
+                  <span className="block md:whitespace-nowrap">You have successfully logged out.</span>
+                  <span className="block">See you again soon!</span>
+                </>
+              )}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

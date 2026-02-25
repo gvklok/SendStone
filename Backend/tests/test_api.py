@@ -417,3 +417,396 @@ class TestMLPrediction:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+# ============== API Tests Ryan ==============
+
+USER_ID_VALID_RYAN = "user_test_001"
+USER_ID_OTHER_RYAN = "user_test_002"
+ROUTE_INVALID_ID_RYAN = "not-a-real-id"
+
+ROUTE_CREATE_BODY_VALID_RYAN = {
+    "name": "Test Route Alpha Ryan",
+    "difficulty": "v5",
+    "description": "test route description",
+    "angle": 40,
+    "visibility": "public",
+    "holds": [
+        {"x": 1, "y": 1, "color": "green"},
+        {"x": 3, "y": 5, "color": "blue"}
+    ]
+}
+
+
+def _ryan_assert_validation_field(data, field):
+    detail = data.get("detail", [])
+    assert isinstance(detail, list)
+    assert any(field in [str(x) for x in err.get("loc", [])] for err in detail)
+
+
+def _ryan_create_route():
+    response = client.post("/routes", json=ROUTE_CREATE_BODY_VALID_RYAN)
+    assert response.status_code == 201
+    data = response.json()
+    assert "id" in data and data["id"]
+    return data["id"]
+
+
+def _ryan_upsert_profile(user_id, email=None, name="Test User", username=None, climber_level="beginner"):
+    payload = {
+        "id": user_id,
+        "email": email or f"{user_id}@example.com",
+        "name": name,
+        "username": username or user_id,
+        "photo_url": None,
+        "climber_level": climber_level,
+    }
+    response = client.post("/profiles", json=payload)
+    assert response.status_code == 201
+    return response.json()
+
+
+class TestRoutesListRyan:
+    def test_list_routes_default_limit_and_desc_order_best_effort(self):
+        response = client.get("/routes")
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["page"] == 1
+        assert isinstance(data["total"], int)
+        assert len(data["items"]) <= 20
+
+        if len(data["items"]) >= 2:
+            first = data["items"][0].get("created_at")
+            last = data["items"][-1].get("created_at")
+            if first and last:
+                assert first >= last
+
+    def test_list_routes_sort_created_at_ascending_best_effort(self):
+        response = client.get("/routes?sort=created_at")
+        assert response.status_code == 200
+        data = response.json()
+
+        if len(data["items"]) >= 2:
+            first = data["items"][0].get("created_at")
+            last = data["items"][-1].get("created_at")
+            if first and last:
+                assert first <= last
+
+    def test_list_routes_pagination_page_1_and_2_limit_1(self):
+        response1 = client.get("/routes?page=1&limit=1")
+        response2 = client.get("/routes?page=2&limit=1")
+
+        assert response1.status_code == 200
+        assert response2.status_code == 200
+
+        data1 = response1.json()
+        data2 = response2.json()
+
+        assert len(data1["items"]) <= 1
+        assert len(data2["items"]) <= 1
+
+        if data1["items"] and data2["items"]:
+            assert data1["items"][0]["id"] != data2["items"][0]["id"]
+
+    def test_list_routes_validation_page_less_than_1(self):
+        response = client.get("/routes?page=0")
+        assert response.status_code == 422
+        _ryan_assert_validation_field(response.json(), "page")
+
+    def test_list_routes_validation_limit_gt_100(self):
+        response = client.get("/routes?limit=101")
+        assert response.status_code == 422
+        _ryan_assert_validation_field(response.json(), "limit")
+
+
+class TestRoutesCreateRyan:
+    def test_create_route_validation_name_empty(self):
+        body = {
+            "name": "",
+            "difficulty": "v5",
+            "description": "x",
+            "angle": 40,
+            "visibility": "public",
+            "holds": [{"x": 1, "y": 1, "color": "green"}],
+        }
+        response = client.post("/routes", json=body)
+        assert response.status_code == 422
+
+    def test_create_route_validation_angle_out_of_range(self):
+        body = {
+            "name": "Bad Angle",
+            "difficulty": "v5",
+            "description": "x",
+            "angle": 71,
+            "visibility": "public",
+            "holds": [{"x": 1, "y": 1, "color": "green"}],
+        }
+        response = client.post("/routes", json=body)
+        assert response.status_code == 422
+
+    def test_create_route_validation_holds_missing_required_field(self):
+        body = {
+            "name": "Missing Hold Fields",
+            "difficulty": "v5",
+            "description": "x",
+            "angle": 40,
+            "visibility": "public",
+            "holds": [{"x": 1, "y": 1}],
+        }
+        response = client.post("/routes", json=body)
+        assert response.status_code == 422
+        _ryan_assert_validation_field(response.json(), "holds")
+
+
+class TestRoutesGetRyan:
+    def test_get_route_invalid_string_id_behavior(self):
+        response = client.get(f"/routes/{ROUTE_INVALID_ID_RYAN}")
+        assert response.status_code in (404, 422)
+
+
+class TestRoutesDeleteRyan:
+    def test_delete_route_with_optional_user_id(self):
+        route_id = _ryan_create_route()
+        response = client.delete(f"/routes/{route_id}", params={"user_id": USER_ID_VALID_RYAN})
+        assert response.status_code == 200
+
+
+class TestRoutesSaveRyan:
+    def test_save_route_missing_required_user_id(self):
+        route_id = _ryan_create_route()
+        response = client.put(f"/routes/{route_id}/save")
+        assert response.status_code == 422
+        _ryan_assert_validation_field(response.json(), "user_id")
+
+    def test_unsave_route_success_and_idempotency_behavior(self):
+        _ryan_upsert_profile(USER_ID_VALID_RYAN)
+        route_id = _ryan_create_route()
+
+        save_response = client.put(f"/routes/{route_id}/save", params={"user_id": USER_ID_VALID_RYAN})
+        assert save_response.status_code == 200
+
+        first = client.delete(f"/routes/{route_id}/save", params={"user_id": USER_ID_VALID_RYAN})
+        second = client.delete(f"/routes/{route_id}/save", params={"user_id": USER_ID_VALID_RYAN})
+
+        assert first.status_code == 200
+        assert second.status_code in (200, 404, 409)
+
+    def test_unsave_route_missing_required_user_id(self):
+        route_id = _ryan_create_route()
+        response = client.delete(f"/routes/{route_id}/save")
+        assert response.status_code == 422
+        _ryan_assert_validation_field(response.json(), "user_id")
+
+
+class TestRoutesSendRyan:
+    def test_send_route_missing_required_user_id(self):
+        route_id = _ryan_create_route()
+        response = client.put(f"/routes/{route_id}/send")
+        assert response.status_code == 422
+        _ryan_assert_validation_field(response.json(), "user_id")
+
+    def test_unsend_route_success_and_idempotency_behavior(self):
+        _ryan_upsert_profile(USER_ID_VALID_RYAN)
+        route_id = _ryan_create_route()
+
+        send_response = client.put(f"/routes/{route_id}/send", params={"user_id": USER_ID_VALID_RYAN})
+        assert send_response.status_code == 200
+
+        first = client.delete(f"/routes/{route_id}/send", params={"user_id": USER_ID_VALID_RYAN})
+        second = client.delete(f"/routes/{route_id}/send", params={"user_id": USER_ID_VALID_RYAN})
+
+        assert first.status_code == 200
+        assert second.status_code in (200, 404, 409)
+
+    def test_unsend_route_missing_required_user_id(self):
+        route_id = _ryan_create_route()
+        response = client.delete(f"/routes/{route_id}/send")
+        assert response.status_code == 422
+        _ryan_assert_validation_field(response.json(), "user_id")
+
+
+class TestHardwareLEDRyan:
+    def test_led_status_success(self):
+        response = client.get("/hardware/led/status")
+        assert response.status_code == 200
+        data = response.json()
+
+        assert "online" in data and isinstance(data["online"], bool)
+        assert "led_count" in data and isinstance(data["led_count"], int)
+        assert "message" in data and isinstance(data["message"], str)
+
+    def test_led_off_success(self):
+        response = client.post("/hardware/led/off")
+        assert response.status_code == 200
+        data = response.json()
+
+        assert "status" in data
+        assert isinstance(data["status"], str)
+
+    def test_led_display_route_success(self):
+        route_id = _ryan_create_route()
+        response = client.post(f"/hardware/led/routes/{route_id}")
+        assert response.status_code == 200
+
+        data = response.json()
+        assert "status" in data
+        assert "route_id" in data
+        assert data["route_id"] == route_id
+        assert "hold_count" in data
+        assert isinstance(data["hold_count"], int)
+        assert data["hold_count"] >= 0
+
+    def test_led_display_invalid_route_id_behavior(self):
+        response = client.post(f"/hardware/led/routes/{ROUTE_INVALID_ID_RYAN}")
+        assert response.status_code in (404, 422)
+
+    def test_led_preview_success(self):
+        body = {
+            "holds": [
+                {"x": 2, "y": 4, "color": "red"},
+                {"x": 5, "y": 10, "color": "yellow"},
+            ]
+        }
+        response = client.post("/hardware/led/preview", json=body)
+        assert response.status_code == 200
+
+        data = response.json()
+        assert "status" in data
+        assert data["hold_count"] == 2
+
+    def test_led_preview_validation_missing_holds(self):
+        response = client.post("/hardware/led/preview", json={})
+        assert response.status_code == 422
+        _ryan_assert_validation_field(response.json(), "holds")
+
+    def test_led_preview_validation_hold_missing_required_field(self):
+        body = {"holds": [{"x": 2, "y": 4}]}
+        response = client.post("/hardware/led/preview", json=body)
+        assert response.status_code == 422
+        _ryan_assert_validation_field(response.json(), "holds")
+
+
+class TestProfilesRyan:
+    def test_list_profiles_success(self):
+        _ryan_upsert_profile(USER_ID_VALID_RYAN)
+
+        response = client.get("/profiles")
+        assert response.status_code == 200
+        data = response.json()
+
+        assert isinstance(data, list)
+        if data:
+            profile = data[0]
+            assert "id" in profile
+            assert "name" in profile
+            assert "email" in profile
+            assert "username" in profile
+            assert "created_at" in profile
+
+    def test_upsert_profile_create_success(self):
+        response = client.post(
+            "/profiles",
+            json={
+                "id": USER_ID_VALID_RYAN,
+                "email": "user_test_001@example.com",
+                "name": "Test User",
+                "username": "testuser1",
+                "photo_url": None,
+                "climber_level": "beginner",
+            },
+        )
+
+        assert response.status_code == 201
+        assert response.json()["id"] == USER_ID_VALID_RYAN
+
+    def test_upsert_profile_update_success(self):
+        _ryan_upsert_profile(USER_ID_VALID_RYAN, username="testuser1")
+
+        response = client.post(
+            "/profiles",
+            json={
+                "id": USER_ID_VALID_RYAN,
+                "email": "user_test_001@example.com",
+                "name": "Updated Test User",
+                "username": "testuser1-updated",
+                "photo_url": None,
+                "climber_level": "beginner",
+            },
+        )
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["name"] == "Updated Test User"
+        assert data["username"] == "testuser1-updated"
+
+    def test_upsert_profile_validation_missing_required_field(self):
+        response = client.post(
+            "/profiles",
+            json={
+                "id": USER_ID_OTHER_RYAN,
+                "name": "No Email",
+                "username": "noemail",
+                "photo_url": None,
+                "climber_level": "beginner",
+            },
+        )
+
+        assert response.status_code == 422
+        _ryan_assert_validation_field(response.json(), "email")
+
+    def test_get_profile_by_id_success(self):
+        _ryan_upsert_profile(USER_ID_VALID_RYAN)
+
+        response = client.get(f"/profiles/{USER_ID_VALID_RYAN}")
+        assert response.status_code == 200
+        assert response.json()["id"] == USER_ID_VALID_RYAN
+
+    def test_get_profile_not_found_behavior(self):
+        response = client.get("/profiles/user_does_not_exist")
+        assert response.status_code in (404, 422)
+
+    def test_patch_profile_single_field_success(self):
+        _ryan_upsert_profile(USER_ID_VALID_RYAN)
+
+        patch_response = client.patch(
+            f"/profiles/{USER_ID_VALID_RYAN}",
+            json={"climber_level": "intermediate"},
+        )
+        assert patch_response.status_code == 200
+
+        get_response = client.get(f"/profiles/{USER_ID_VALID_RYAN}")
+        assert get_response.status_code == 200
+        assert get_response.json()["climber_level"] == "intermediate"
+
+    def test_patch_profile_multiple_fields_success(self):
+        _ryan_upsert_profile(USER_ID_VALID_RYAN)
+
+        response = client.patch(
+            f"/profiles/{USER_ID_VALID_RYAN}",
+            json={
+                "name": "Updated Name",
+                "photo_url": "https://example.com/p.png",
+            },
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["name"] == "Updated Name"
+        assert data["photo_url"] == "https://example.com/p.png"
+
+    def test_patch_profile_validation_invalid_body_type(self):
+        response = client.patch(f"/profiles/{USER_ID_VALID_RYAN}", json=["invalid", "array"])
+        assert response.status_code == 422
+
+    def test_delete_profile_success(self):
+        delete_id = "user_test_delete_ryan"
+        _ryan_upsert_profile(delete_id)
+
+        delete_response = client.delete(f"/profiles/{delete_id}")
+        assert delete_response.status_code == 200
+
+        get_response = client.get(f"/profiles/{delete_id}")
+        assert get_response.status_code in (404, 422)
+
+    def test_delete_profile_non_existent_behavior(self):
+        response = client.delete("/profiles/user_does_not_exist")
+        assert response.status_code in (200, 404, 500)

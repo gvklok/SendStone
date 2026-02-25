@@ -5,6 +5,7 @@ const tabLabels = {
   create: 'Create',
   profile: 'Profile',
   saved: 'Saved',
+  yourRoutes: 'Your Routes',
 };
 
 const MAX_PHOTO_BYTES = 200 * 1024; // 200KB max for profile photos
@@ -72,6 +73,7 @@ const AuthModal = ({ open, onClose, onAuthenticated, targetTab, externalError })
         // Get user metadata
         const user = data.user;
         const userData = {
+          id: user.id,
           email: user.email,
           name: user.user_metadata?.name || user.user_metadata?.full_name || user.email.split('@')[0],
           username: user.user_metadata?.username || user.email.split('@')[0],
@@ -111,6 +113,7 @@ const AuthModal = ({ open, onClose, onAuthenticated, targetTab, externalError })
 
         // Use the form data directly since we just created this user
         const userData = {
+          id: data.user.id,
           email: data.user.email,
           name,
           username,
@@ -220,7 +223,7 @@ const AuthModal = ({ open, onClose, onAuthenticated, targetTab, externalError })
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full border-2 border-gray-900 px-3 py-3 font-bold text-gray-900 focus:outline-none focus:border-blue-500"
-              placeholder="admin"
+              placeholder="email"
             />
           </div>
           <div className="space-y-1">
@@ -313,7 +316,9 @@ const AuthModal = ({ open, onClose, onAuthenticated, targetTab, externalError })
             onClick={handleGoogleSignIn}
             className="w-full border-2 border-gray-300 text-gray-700 py-3 font-black uppercase tracking-widest hover:border-gray-400 flex items-center justify-center gap-2 transition-colors"
           >
-            <span className="w-4 h-4 bg-white rounded-full border border-gray-400 flex items-center justify-center text-xs">G</span>
+            <span className="w-4 h-4 bg-white rounded-full border-2 border-gray-400 inline-flex items-center justify-center text-[10px] leading-none">
+              <span className="translate-x-[0.5px]">G</span>
+            </span>
             <span>{mode === 'login' ? 'Sign in with Google' : 'Create with Google'}</span>
           </button>
         </form>

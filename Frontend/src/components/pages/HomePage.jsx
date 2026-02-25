@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Mountain, TrendingUp, Award, Clock } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Mountain, TrendingUp, Award, Clock, Trophy, Bookmark, Users } from 'lucide-react';
 import StatCard from '../common/StatCard';
-import ProblemCard from '../common/ProblemCard';
+import ProblemGridCard from '../common/ProblemGridCard';
 
 const heroImages = [
   '/climbing-1.jpeg',
@@ -10,19 +10,20 @@ const heroImages = [
   '/climbing-4.jpeg',
 ];
 
-const HomePage = ({ user, publicProblems = [], likedProblems = [], recentPosts = [], onOpenRecent }) => {
+const HomePage = ({
+  user,
+  dashboardStats = {
+    problems_created: null,
+    successful_ascensions: null,
+    sessions: null,
+    max_grade: null,
+    saved_climbs: null,
+    community_ascensions: null,
+  },
+  recentPosts = [],
+  onOpenRecent,
+}) => {
   const [heroIndex, setHeroIndex] = useState(0);
-
-  const userPostCount = useMemo(() => {
-    if (!user) return 0;
-    return publicProblems.filter((p) => p.userEmail === user.email).length;
-  }, [publicProblems, user]);
-
-  const userSendCount = useMemo(() => {
-    if (!user) return 0;
-    const keyPrefix = `${user.email}-`;
-    return likedProblems.filter((k) => k.startsWith(keyPrefix)).length;
-  }, [likedProblems, user]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -50,7 +51,7 @@ const HomePage = ({ user, publicProblems = [], likedProblems = [], recentPosts =
 
         <div className="relative max-w-4xl mx-auto z-10">
           <div className="inline-block p-6 md:p-8 mb-6 bg-black/20 rounded-full">
-            <Mountain size={80} className="md:w-32 md:h-32" strokeWidth={3} />
+            <Mountain size={80} className="sendstone-hero-mountain text-neutral-100 md:w-32 md:h-32" strokeWidth={3} />
           </div>
           <h1 className="text-4xl md:text-7xl font-black mb-3 uppercase tracking-widest">Welcome To</h1>
           <h2 className="text-5xl md:text-8xl font-black tracking-widest">SendStone</h2>
@@ -62,10 +63,42 @@ const HomePage = ({ user, publicProblems = [], likedProblems = [], recentPosts =
 
       {/* Quick Stats or Team */}
       {user ? (
-        <div className="grid grid-cols-3 gap-4 md:gap-8 p-6 md:p-12 bg-neutral-100 max-w-7xl mx-auto">
-          <StatCard icon={TrendingUp} value={userPostCount} label="Problems" />
-          <StatCard icon={Award} value={userSendCount} label="Sends" />
-          <StatCard icon={Clock} value="0" label="Sessions" />
+        <div className="p-6 md:p-12 bg-neutral-100 max-w-7xl mx-auto">
+          <h3 className="text-2xl md:text-4xl font-black mb-5 md:mb-8 text-gray-900 uppercase tracking-wider border-l-4 border-blue-500 pl-4">
+            Your Stats
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-8">
+            <StatCard
+              icon={TrendingUp}
+              value={dashboardStats.problems_created ?? '...'}
+              label="Problems Created"
+            />
+            <StatCard
+              icon={Award}
+              value={dashboardStats.successful_ascensions ?? '...'}
+              label="Successful Ascensions"
+            />
+            <StatCard
+              icon={Clock}
+              value={dashboardStats.sessions ?? '...'}
+              label="Sessions"
+            />
+            <StatCard
+              icon={Trophy}
+              value={dashboardStats.max_grade ?? '...'}
+              label="Max Grade"
+            />
+            <StatCard
+              icon={Bookmark}
+              value={dashboardStats.saved_climbs ?? '...'}
+              label="Saved Climbs"
+            />
+            <StatCard
+              icon={Users}
+              value={dashboardStats.community_ascensions ?? '...'}
+              label="Community Ascensions"
+            />
+          </div>
         </div>
       ) : null}
 
@@ -77,23 +110,21 @@ const HomePage = ({ user, publicProblems = [], likedProblems = [], recentPosts =
           </h3>
           {recentPosts.length === 0 ? (
             <div className="text-gray-600 font-semibold bg-white border-2 border-dashed border-gray-300 p-8 text-center">
-              Open a problem on Explore to see it here.
+              Open a problem to see it here.
             </div>
           ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
               {recentPosts.map((p) => (
-                <div
+                <ProblemGridCard
                   key={p.id}
-                  className="cursor-pointer"
-                  onClick={() => onOpenRecent?.(p.id)}
-                >
-                  <ProblemCard 
-                    id={p.id}
-                    grade={p.grade}
-                    setter={p.name}
-                    status="Open"
-                  />
-                </div>
+                  id={p.id}
+                  grade={p.grade}
+                  sends={p.sends || 0}
+                  name={p.name}
+                  holds={p.holds || []}
+                  authorUsername={p.authorUsername}
+                  onOpen={() => onOpenRecent?.(p.id)}
+                />
               ))}
             </div>
           )}

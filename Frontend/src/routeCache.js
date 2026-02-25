@@ -7,7 +7,7 @@
  */
 
 const API_BASE = 'http://127.0.0.1:8000';
-const PREFETCH_LIMIT = 24;
+const PREFETCH_LIMIT = 12;
 
 let _cache = null;   // { items, total }
 let _promise = null;  // in-flight fetch

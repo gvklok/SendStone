@@ -111,36 +111,40 @@ const InteractiveBoard = ({ onHoldsChange }) => {
   return (
     <div className="space-y-4">
       {/* Legend */}
-      <div className="flex items-center gap-4 px-4 py-3 bg-white border-2 border-gray-200 rounded-xl">
-        <span className="text-sm font-black text-gray-800 uppercase tracking-wider whitespace-nowrap">Click Holds:</span>
-        {COLOR_CYCLE.map(color => (
-          <div key={color} className="flex items-center gap-1.5">
-            <div className="w-5 h-5 rounded-full" style={{ backgroundColor: COLOR_STYLES[color].border }} />
-            <span className="text-sm font-semibold text-gray-600">{COLOR_LABELS[color]}</span>
-          </div>
-        ))}
-        <button
-          onClick={clearRoute}
-          className="ml-auto flex items-center gap-1 px-2 py-1 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-          title="Clear all holds"
-          aria-label="Clear all holds"
-        >
-          <Trash2 size={15} strokeWidth={2.25} />
-          <span className="text-xs font-semibold">Clear</span>
-        </button>
+      <div className="sendstone-click-holds-legend px-3 py-3 md:px-4 bg-white border-2 border-gray-200 rounded-xl">
+        <div className="flex flex-wrap items-center gap-2 md:gap-4">
+          <span className="text-xs md:text-sm font-black text-gray-800 uppercase tracking-wide md:tracking-wider whitespace-nowrap">
+            Click Holds:
+          </span>
+          {COLOR_CYCLE.map(color => (
+            <div key={color} className="flex items-center gap-1.5">
+              <div className="w-4 h-4 md:w-5 md:h-5 rounded-full" style={{ backgroundColor: COLOR_STYLES[color].border }} />
+              <span className="text-xs md:text-sm font-semibold text-gray-600 whitespace-nowrap">{COLOR_LABELS[color]}</span>
+            </div>
+          ))}
+          <button
+            onClick={clearRoute}
+            className="md:ml-auto flex items-center gap-1 px-2 py-1 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+            title="Clear all holds"
+            aria-label="Clear all holds"
+          >
+            <Trash2 size={15} strokeWidth={2.25} />
+            <span className="text-xs font-semibold">Clear</span>
+          </button>
+        </div>
       </div>
 
       {/* Board frame — width-driven, height follows 800:1200 ratio */}
       <div
         ref={frameRef}
-        className="relative bg-neutral-900 border-4 border-gray-900 overflow-hidden max-w-lg mx-auto"
+        className="sendstone-board-surface relative bg-neutral-900 border-4 border-gray-900 overflow-hidden max-w-lg mx-auto"
         style={{ width: '100%', aspectRatio: `${BOARD_W} / ${BOARD_H}` }}
       >
         {/* Image stretches to fill frame exactly — no object-contain */}
         <img
           src={boardImage}
           alt="Kilter Board"
-          className="pointer-events-none select-none block"
+          className="sendstone-board-image pointer-events-none select-none block"
           style={{ width: '100%', height: '100%' }}
           draggable="false"
         />
@@ -231,7 +235,7 @@ const InteractiveBoard = ({ onHoldsChange }) => {
       )}
 
       {/* Summary counts */}
-      <div className="grid grid-cols-4 gap-2">
+      <div className="sendstone-click-holds-summary grid grid-cols-4 gap-2">
         {COLOR_CYCLE.map(color => (
           <div key={color} className="bg-white border-2 border-gray-900 p-2 text-center">
             <div className="w-5 h-5 mx-auto mb-1 rounded-full" style={{ backgroundColor: COLOR_STYLES[color].border }} />
