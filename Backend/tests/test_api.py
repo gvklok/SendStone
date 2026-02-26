@@ -420,8 +420,8 @@ if __name__ == "__main__":
 
 # ============== API Tests Ryan ==============
 
-USER_ID_VALID_RYAN = "user_test_001"
-USER_ID_OTHER_RYAN = "user_test_002"
+USER_ID_VALID_RYAN = TEST_USER_ID  # Must exist in auth.users (FK constraint on profiles)
+USER_ID_OTHER_RYAN = "00000000-0000-0000-0000-000000000002"
 ROUTE_INVALID_ID_RYAN = "not-a-real-id"
 
 ROUTE_CREATE_BODY_VALID_RYAN = {
@@ -708,7 +708,7 @@ class TestProfilesRyan:
             "/profiles",
             json={
                 "id": USER_ID_VALID_RYAN,
-                "email": "user_test_001@example.com",
+                "email": "test001@example.com",
                 "name": "Test User",
                 "username": "testuser1",
                 "photo_url": None,
@@ -726,7 +726,7 @@ class TestProfilesRyan:
             "/profiles",
             json={
                 "id": USER_ID_VALID_RYAN,
-                "email": "user_test_001@example.com",
+                "email": "test001@example.com",
                 "name": "Updated Test User",
                 "username": "testuser1-updated",
                 "photo_url": None,
@@ -798,7 +798,7 @@ class TestProfilesRyan:
         assert response.status_code == 422
 
     def test_delete_profile_success(self):
-        delete_id = "user_test_delete_ryan"
+        delete_id = USER_ID_VALID_RYAN
         _ryan_upsert_profile(delete_id)
 
         delete_response = client.delete(f"/profiles/{delete_id}")
