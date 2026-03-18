@@ -43,9 +43,9 @@ const ALL_HOLDS = [
 const BOARD_W = 800;
 const BOARD_H = 1200;
 
-// Color cycle: blue → green → yellow → red → remove
-const COLOR_CYCLE = ['blue', 'green', 'yellow', 'red'];
-const COLOR_LABELS = { blue: 'Middle', green: 'Start', yellow: 'Foothold', red: 'Finish' };
+// Color cycle: green → blue → yellow → red → remove
+const COLOR_CYCLE = ['green', 'blue', 'yellow', 'red'];
+const COLOR_LABELS = { green: 'Start', blue: 'Handhold', yellow: 'Foothold', red: 'Finish' };
 
 const COLOR_STYLES = {
   blue:   { border: 'rgba(5,103,232,1)',   shadow: 'rgba(5,103,232,0.5)',   hoverShadow: 'rgba(5,103,232,0.7)' },
@@ -54,9 +54,11 @@ const COLOR_STYLES = {
   red:    { border: 'rgb(239,68,68)',      shadow: 'rgba(239,68,68,0.5)',   hoverShadow: 'rgba(239,68,68,0.7)' },
 };
 
-const InteractiveBoard = ({ onHoldsChange }) => {
+const InteractiveBoard = ({ onHoldsChange, initialHolds }) => {
   // selectedRoute: array of { x, y, color }
-  const [selectedRoute, setSelectedRoute] = useState([]);
+  const [selectedRoute, setSelectedRoute] = useState(() =>
+    initialHolds ? initialHolds.map(h => ({ x: h.x, y: h.y, color: h.color })) : []
+  );
   const [scale, setScale] = useState(1);
   const frameRef = useRef(null);
 

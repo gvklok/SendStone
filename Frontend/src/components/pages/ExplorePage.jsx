@@ -7,7 +7,7 @@ import { getPrefetchedRoutes, clearPrefetchedRoutes } from '../../routeCache';
 const API_BASE = 'http://127.0.0.1:8000';
 const PAGE_SIZE = 12;
 
-const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(), openPostId, clearOpenPost, onOpenPost }) => {
+const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(), openPostId, clearOpenPost, onOpenPost, onRemix }) => {
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -405,6 +405,7 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
               setOpenPost((prev) => (prev ? { ...prev, sends: result.sendCount } : prev));
             }
           }}
+          onRemix={() => { onRemix?.(openPost); setOpenPost(null); }}
           liked={likedIds.has(openPost.id)}
           saved={savedIds.has(openPost.id)}
         />

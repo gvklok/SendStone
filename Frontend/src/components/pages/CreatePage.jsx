@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import InteractiveBoard from '../common/InteractiveBoard';
 
-const CreatePage = ({ onPostProblem, onSaveProblem, user }) => {
-  const [name, setName] = useState('');
-  const [grade, setGrade] = useState('V0');
-  const [description, setDescription] = useState('');
-  const [holds, setHolds] = useState([]);
-  const [angle, setAngle] = useState(40);
+const CreatePage = ({ onPostProblem, onSaveProblem, user, remixData, onRemixConsumed }) => {
+  const [name, setName] = useState(() => remixData?.name || '');
+  const [grade, setGrade] = useState(() => remixData?.grade || 'V0');
+  const [description, setDescription] = useState(() => remixData?.description || '');
+  const [holds, setHolds] = useState(() => remixData?.holds || []);
+  const [angle, setAngle] = useState(() => remixData?.angle ?? 40);
   const [boardKey, setBoardKey] = useState(0);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -22,6 +22,7 @@ const CreatePage = ({ onPostProblem, onSaveProblem, user }) => {
     setAngle(40);
     setBoardKey((k) => k + 1);
     setPredictedGrade(null);
+    onRemixConsumed?.();
   };
 
   // Check if holds are valid (have proper start and finish)
@@ -173,12 +174,21 @@ const CreatePage = ({ onPostProblem, onSaveProblem, user }) => {
         <h2 className="text-2xl md:text-5xl font-black mb-5 md:mb-10 text-gray-900 uppercase tracking-wide md:tracking-wider border-l-4 border-blue-500 pl-3 md:pl-4">
           Create Problem
         </h2>
-        
+
+        {remixData && (
+          <div className="mb-5 md:mb-8 bg-purple-50 border-l-4 border-purple-500 p-3 md:p-4">
+            <p className="text-xs font-black text-purple-900 uppercase tracking-wide">
+              Remixing "{remixData.originalName}" — modify and post as your own
+            </p>
+          </div>
+        )}
+
         <div className="grid md:grid-cols-2 gap-8 md:gap-12">
           {/* Interactive Board */}
           <InteractiveBoard
             key={boardKey}
             onHoldsChange={setHolds}
+            initialHolds={remixData?.holds}
           />
 
           {/* Problem Details Form */}

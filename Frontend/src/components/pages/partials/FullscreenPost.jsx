@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Mountain, Bookmark, Lightbulb, X } from 'lucide-react';
+import { Mountain, Bookmark, Lightbulb, X, Shuffle } from 'lucide-react';
 import BoardPreview from '../../common/BoardPreview';
 
-const FullscreenPost = ({ post, onClose, onSave, onSend, onSendToBoard, liked = false, saved = false }) => {
+const FullscreenPost = ({ post, onClose, onSave, onSend, onSendToBoard, onRemix, liked = false, saved = false }) => {
   const [predictedGrade, setPredictedGrade] = useState(null);
   const [isPredicting, setIsPredicting] = useState(false);
   const [predictionError, setPredictionError] = useState(null);
@@ -64,6 +64,15 @@ const FullscreenPost = ({ post, onClose, onSave, onSend, onSendToBoard, liked = 
             <X size={22} strokeWidth={2.5} />
           </button>
           <div className="flex gap-2">
+            {/* Remix */}
+            <button
+              onClick={(e) => { e.stopPropagation(); onRemix?.(); }}
+              className="p-2.5 rounded-full bg-gray-100 text-gray-700 hover:bg-purple-100 hover:text-purple-600 transition-colors"
+              aria-label="Remix route"
+              title="Remix this route"
+            >
+              <Shuffle size={20} strokeWidth={2.25} />
+            </button>
             {/* Send to Board (LED) */}
             <button
               onClick={(e) => { e.stopPropagation(); onSendToBoard?.(); }}

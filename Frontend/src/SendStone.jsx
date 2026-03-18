@@ -37,6 +37,9 @@ export default function ClimbingBoardApp() {
   const [recentOpenedIds, setRecentOpenedIds] = useState([]);
   const [recentOpenedPosts, setRecentOpenedPosts] = useState([]);
   const [openPostId, setOpenPostId] = useState(null);
+  const [remixData, setRemixData] = useState(null);
+  const [pendingRemixPost, setPendingRemixPost] = useState(null);
+  const [createPageKey, setCreatePageKey] = useState(0);
   const [dashboardStats, setDashboardStats] = useState({
     problems_created: null,
     successful_ascensions: null,
@@ -473,12 +476,40 @@ export default function ClimbingBoardApp() {
     setActiveTab(tabName);
   };
 
+  const applyRemix = (post, currentUser) => {
+    const u = currentUser || user;
+    const username = u?.username || u?.email?.split('@')[0] || 'climber';
+    setRemixData({
+      name: `${post.name} (remixed by ${username})`,
+      originalName: post.name,
+      grade: post.grade,
+      description: post.description || '',
+      angle: post.angle ?? 40,
+      holds: post.holds || [],
+    });
+    setCreatePageKey((k) => k + 1);
+    setActiveTab('create');
+  };
+
+  const handleRemix = (post) => {
+    if (!user) {
+      setPendingRemixPost(post);
+      setPendingTab('create');
+      setShowAuth(true);
+      return;
+    }
+    applyRemix(post);
+  };
+
   const handleAuthenticated = (userObj) => {
     setAuthError('');
-    // Immediately set user from the auth response
     setUser(userObj);
     setShowAuth(false);
-    if (pendingTab) {
+    if (pendingRemixPost) {
+      applyRemix(pendingRemixPost, userObj);
+      setPendingRemixPost(null);
+      setPendingTab(null);
+    } else if (pendingTab) {
       setActiveTab(pendingTab);
       setPendingTab(null);
     }
@@ -841,7 +872,16 @@ export default function ClimbingBoardApp() {
           }}
         />
       )}
-      {activeTab === 'create' && <CreatePage user={user} onPostProblem={handlePostProblem} onSaveProblem={handleSaveProblem} />}
+      {activeTab === 'create' && (
+        <CreatePage
+          key={createPageKey}
+          user={user}
+          onPostProblem={handlePostProblem}
+          onSaveProblem={handleSaveProblem}
+          remixData={remixData}
+          onRemixConsumed={() => setRemixData(null)}
+        />
+      )}
       {activeTab === 'explore' && (
         <ExplorePage
           problems={publicProblems}
@@ -852,6 +892,7 @@ export default function ClimbingBoardApp() {
           openPostId={openPostId}
           clearOpenPost={() => setOpenPostId(null)}
           onOpenPost={recordOpenPost}
+          onRemix={handleRemix}
         />
       )}
       {activeTab === 'saved' && (
