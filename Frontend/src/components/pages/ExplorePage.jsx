@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Search, RefreshCw, ChevronDown } from 'lucide-react';
+import { Search, RefreshCw, ChevronDown, List, Layers } from 'lucide-react';
 import ProblemGridCard from '../common/ProblemGridCard';
 import FullscreenPost from './partials/FullscreenPost';
 import { getPrefetchedRoutes, clearPrefetchedRoutes } from '../../routeCache';
 
 const API_BASE = 'http://127.0.0.1:8000';
 const PAGE_SIZE = 12;
+const EXPLORE_VIEW_KEY = 'sendstone_explore_view';
 
 const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(), openPostId, clearOpenPost, onOpenPost, onRemix }) => {
   const [routes, setRoutes] = useState([]);
@@ -18,9 +19,14 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
   const [openPost, setOpenPost] = useState(null);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [viewMode, setViewMode] = useState(() => {
+    try { return localStorage.getItem(EXPLORE_VIEW_KEY) || 'pagination'; } catch { return 'pagination'; }
+  });
+  const [hasMore, setHasMore] = useState(true);
   const hasMountedFilterEffect = useRef(false);
   const usernameCacheRef = useRef({});
   const latestRequestRef = useRef(0);
+  const sentinelRef = useRef(null);
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const pageStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
@@ -68,7 +74,7 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
     });
   }, []);
 
-  const fetchPage = useCallback(async (search, difficulty, pageNum) => {
+  const fetchPage = useCallback(async (search, difficulty, pageNum, append = false) => {
     const requestId = latestRequestRef.current + 1;
     latestRequestRef.current = requestId;
     setLoading(true);
@@ -85,8 +91,10 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
       const data = await res.json();
       const enrichedItems = await enrichRoutesWithUsernames(data.items || []);
       if (requestId !== latestRequestRef.current) return;
-      setRoutes(enrichedItems);
-      setTotal(data.total ?? 0);
+      setRoutes((prev) => append ? [...prev, ...enrichedItems] : enrichedItems);
+      const fetchedTotal = data.total ?? 0;
+      setTotal(fetchedTotal);
+      setHasMore(pageNum * PAGE_SIZE < fetchedTotal);
     } catch (err) {
       if (requestId !== latestRequestRef.current) return;
       console.error('Error fetching routes:', err);
@@ -142,6 +150,34 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
     },
     [totalPages, page, fetchPage, activeSearch, difficultyFilter]
   );
+
+  const toggleViewMode = useCallback(() => {
+    const next = viewMode === 'pagination' ? 'scroll' : 'pagination';
+    setViewMode(next);
+    try { localStorage.setItem(EXPLORE_VIEW_KEY, next); } catch {}
+    setPage(1);
+    setRoutes([]);
+    fetchPage(activeSearch, difficultyFilter, 1, false);
+  }, [viewMode, fetchPage, activeSearch, difficultyFilter]);
+
+  // Infinite scroll: load next page when sentinel comes into view
+  useEffect(() => {
+    if (viewMode !== 'scroll') return;
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !loading && hasMore) {
+          const nextPage = page + 1;
+          setPage(nextPage);
+          fetchPage(activeSearch, difficultyFilter, nextPage, true);
+        }
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [viewMode, loading, hasMore, page, fetchPage, activeSearch, difficultyFilter]);
 
   const visiblePages = useMemo(() => {
     const pages = [];
@@ -312,9 +348,21 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
                 </button>
               </span>
             )}
-            <span className="text-xs font-semibold text-gray-500 ml-auto">
-              Page {page} of {totalPages}
-            </span>
+            <div className="ml-auto flex items-center gap-2">
+              {viewMode === 'pagination' && (
+                <span className="text-xs font-semibold text-gray-500">
+                  Page {page} of {totalPages}
+                </span>
+              )}
+              <button
+                onClick={toggleViewMode}
+                title={viewMode === 'pagination' ? 'Switch to infinite scroll' : 'Switch to pagination'}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 bg-white text-gray-700 text-xs font-semibold hover:bg-gray-100"
+              >
+                {viewMode === 'pagination' ? <Layers size={14} /> : <List size={14} />}
+                {viewMode === 'pagination' ? 'Scroll' : 'Pages'}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -327,7 +375,7 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
           </div>
         )}
 
-        {!loading && total > 0 && (
+        {!loading && total > 0 && viewMode === 'pagination' && (
           <div className="mb-4">
             <PaginationNav />
           </div>
@@ -382,9 +430,15 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
           </div>
         )}
 
-        {!loading && total > 0 && (
+        {!loading && total > 0 && viewMode === 'pagination' && (
           <div className="mt-6">
             <PaginationNav />
+          </div>
+        )}
+
+        {viewMode === 'scroll' && (
+          <div ref={sentinelRef} className="py-6 text-center text-xs font-semibold text-gray-400">
+            {loading ? 'Loading more...' : hasMore ? '' : 'All routes loaded'}
           </div>
         )}
       </div>
