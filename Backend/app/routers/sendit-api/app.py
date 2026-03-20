@@ -28,7 +28,7 @@ import onnxruntime as ort
 
 # Coordinate helpers and constants from the model file
 sys.path.insert(0, os.path.dirname(__file__))
-from sendit_v2_constants.py import (
+from sendit_v2_constants import (
     ROLE_START, ROLE_HAND, ROLE_FINISH, ROLE_FOOT,
     ROLE_MAP_CNN, MAX_HOLD_DIFFICULTY, DEFAULT_UNRATED_HOLD_RATING,
     ui_to_rating_int, ui_to_rating_half, ui_to_cnn,
