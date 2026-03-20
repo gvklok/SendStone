@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../../supabaseClient';
 
+const API_BASE = process.env.REACT_APP_API_URL;
+
 const tabLabels = {
   create: 'Create',
   profile: 'Profile',
@@ -136,7 +138,7 @@ const AuthModal = ({ open, onClose, onAuthenticated, targetTab, externalError })
   // Sync user profile to profiles table via backend API
   const syncProfileToDatabase = async (userId, userData) => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/profiles', {
+      const response = await fetch('${API_BASE}/profiles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

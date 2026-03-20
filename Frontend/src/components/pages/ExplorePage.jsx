@@ -4,7 +4,7 @@ import ProblemGridCard from '../common/ProblemGridCard';
 import FullscreenPost from './partials/FullscreenPost';
 import { getPrefetchedRoutes, clearPrefetchedRoutes } from '../../routeCache';
 
-const API_BASE = 'http://127.0.0.1:8000';
+const API_BASE = process.env.REACT_APP_API_URL;
 const PAGE_SIZE = 12;
 const EXPLORE_VIEW_KEY = 'sendstone_explore_view';
 

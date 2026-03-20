@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Mountain, Bookmark, Lightbulb, X, Shuffle } from 'lucide-react';
 import BoardPreview from '../../common/BoardPreview';
 
+const API_BASE = process.env.REACT_APP_API_URL;
+
 const FullscreenPost = ({ post, onClose, onSave, onSend, onSendToBoard, onRemix, liked = false, saved = false }) => {
   const [predictedGrade, setPredictedGrade] = useState(null);
   const [isPredicting, setIsPredicting] = useState(false);
@@ -18,7 +20,7 @@ const FullscreenPost = ({ post, onClose, onSave, onSend, onSendToBoard, onRemix,
     setIsPredicting(true);
 
     try {
-      const response = await fetch('http://localhost:8000/ml/predict', {
+      const response = await fetch('${API_BASE}/ml/predict', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

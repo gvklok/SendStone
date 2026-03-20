@@ -6,7 +6,7 @@
  * this cache on mount so the first render is instant.
  */
 
-const API_BASE = 'http://127.0.0.1:8000';
+const API_BASE = process.env.REACT_APP_API_URL;
 const PREFETCH_LIMIT = 12;
 
 let _cache = null;   // { items, total }

@@ -14,6 +14,8 @@ import { supabase } from './supabaseClient';
 // Kick off background prefetch of popular routes on app boot
 import './routeCache';
 
+const API_BASE = process.env.REACT_APP_API_URL;
+
 const LOGIN_POPUP_SESSION_KEY = 'sendstone_login_popup_shown';
 const LOGIN_SESSION_COUNTED_KEY = 'sendstone_login_session_counted';
 const THEME_STORAGE_KEY = 'sendstone_theme';
@@ -141,7 +143,7 @@ export default function ClimbingBoardApp() {
   const fetchDashboardStats = async (userId) => {
     if (!userId) return;
     try {
-      const res = await fetch(`http://127.0.0.1:8000/profiles/${encodeURIComponent(userId)}/dashboard`);
+      const res = await fetch(`${API_BASE}/profiles/${encodeURIComponent(userId)}/dashboard`);
       if (!res.ok) throw new Error(`Failed stats fetch: ${res.status}`);
       const data = await res.json();
       setDashboardStats({
@@ -166,7 +168,7 @@ export default function ClimbingBoardApp() {
   const logLoginSession = async (userId) => {
     if (!userId) return;
     try {
-      await fetch(`http://127.0.0.1:8000/profiles/${encodeURIComponent(userId)}/sessions`, {
+      await fetch(`${API_BASE}/profiles/${encodeURIComponent(userId)}/sessions`, {
         method: 'POST',
       });
     } catch {
@@ -177,8 +179,8 @@ export default function ClimbingBoardApp() {
     if (!userData?.id || !userData?.email) return;
     try {
       const [savedRes, sentRes] = await Promise.all([
-        fetch(`http://127.0.0.1:8000/routes/meta/saved?user_id=${encodeURIComponent(userData.id)}`),
-        fetch(`http://127.0.0.1:8000/routes/meta/sent_ids?user_id=${encodeURIComponent(userData.id)}`),
+        fetch(`${API_BASE}/routes/meta/saved?user_id=${encodeURIComponent(userData.id)}`),
+        fetch(`${API_BASE}/routes/meta/sent_ids?user_id=${encodeURIComponent(userData.id)}`),
       ]);
 
       if (savedRes.ok) {
@@ -226,7 +228,7 @@ export default function ClimbingBoardApp() {
   // Sync user profile to profiles table via backend API
   const syncProfileToDatabase = async (userId, userData) => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/profiles', {
+      const response = await fetch('${API_BASE}/profiles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -533,7 +535,7 @@ export default function ClimbingBoardApp() {
       const formData = new FormData();
       formData.append('file', file);
 
-      const res = await fetch(`http://127.0.0.1:8000/profiles/${encodeURIComponent(user.id)}/photo`, {
+      const res = await fetch(`${API_BASE}/profiles/${encodeURIComponent(user.id)}/photo`, {
         method: 'POST',
         body: formData,
       });
@@ -563,7 +565,7 @@ export default function ClimbingBoardApp() {
   const handleUpdateEmail = async (newEmail) => {
     if (!user?.id) return { ok: false, error: 'Not logged in.' };
     try {
-      const res = await fetch(`http://127.0.0.1:8000/profiles/${encodeURIComponent(user.id)}/email`, {
+      const res = await fetch(`${API_BASE}/profiles/${encodeURIComponent(user.id)}/email`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: newEmail }),
@@ -581,7 +583,7 @@ export default function ClimbingBoardApp() {
   const handleDeleteAccount = async () => {
     if (!user?.id) return { ok: false, error: 'Not logged in.' };
     try {
-      const res = await fetch(`http://127.0.0.1:8000/profiles/${encodeURIComponent(user.id)}/account`, {
+      const res = await fetch(`${API_BASE}/profiles/${encodeURIComponent(user.id)}/account`, {
         method: 'DELETE',
       });
       const data = await res.json();
@@ -599,7 +601,7 @@ export default function ClimbingBoardApp() {
 
     try {
       // Post to backend API
-      const res = await fetch('http://127.0.0.1:8000/routes', {
+      const res = await fetch('${API_BASE}/routes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -646,7 +648,7 @@ export default function ClimbingBoardApp() {
     if (!user) return;
 
     try {
-      const res = await fetch('http://127.0.0.1:8000/routes', {
+      const res = await fetch('${API_BASE}/routes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -688,7 +690,7 @@ export default function ClimbingBoardApp() {
     );
 
     try {
-      const endpoint = `http://127.0.0.1:8000/routes/${encodeURIComponent(routeId)}/save?user_id=${encodeURIComponent(user.id)}`;
+      const endpoint = `${API_BASE}/routes/${encodeURIComponent(routeId)}/save?user_id=${encodeURIComponent(user.id)}`;
 
       if (existing) {
         const res = await fetch(endpoint, { method: 'DELETE' });
@@ -709,7 +711,7 @@ export default function ClimbingBoardApp() {
 
       let routeData = publicProblems.find((p) => String(p.id) === routeId) || null;
       try {
-        const routeRes = await fetch(`http://127.0.0.1:8000/routes/${encodeURIComponent(routeId)}`);
+        const routeRes = await fetch(`${API_BASE}/routes/${encodeURIComponent(routeId)}`);
         if (routeRes.ok) {
           routeData = await routeRes.json();
         }
@@ -762,7 +764,7 @@ export default function ClimbingBoardApp() {
 
     const syncSend = async () => {
       try {
-        const url = `http://127.0.0.1:8000/routes/${encodeURIComponent(routeId)}/send?user_id=${encodeURIComponent(user.id)}`;
+        const url = `${API_BASE}/routes/${encodeURIComponent(routeId)}/send?user_id=${encodeURIComponent(user.id)}`;
         const res = await fetch(url, {
           method: alreadyLiked ? 'DELETE' : 'PUT',
         });
