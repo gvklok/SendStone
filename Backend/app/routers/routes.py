@@ -104,11 +104,26 @@ async def list_routes(
     # Execute
     response = query.execute()
     
-    # Fetch holds for each route
+    # Fetch all holds for this page in one query, then group by route_id
+    route_ids = [r["id"] for r in response.data if r.get("id")]
+    holds_by_route = {}
+    if route_ids:
+        holds_response = (
+            supabase.table("route_holds")
+            .select("route_id, x, y, color")
+            .in_("route_id", route_ids)
+            .order("position")
+            .execute()
+        )
+        for hold in holds_response.data or []:
+            rid = hold["route_id"]
+            holds_by_route.setdefault(rid, []).append(
+                {"x": hold["x"], "y": hold["y"], "color": hold["color"]}
+            )
+
     routes_with_holds = []
     for route in response.data:
-        holds_response = supabase.table("route_holds").select("x, y, color").eq("route_id", route["id"]).order("position").execute()
-        route["holds"] = holds_response.data or []
+        route["holds"] = holds_by_route.get(route["id"], [])
         routes_with_holds.append(route)
 
     routes_with_holds = _attach_author_usernames(supabase, routes_with_holds)

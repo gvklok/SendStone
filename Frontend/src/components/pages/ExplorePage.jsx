@@ -23,8 +23,9 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
     try { return localStorage.getItem(EXPLORE_VIEW_KEY) || 'pagination'; } catch { return 'pagination'; }
   });
   const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const hasMountedFilterEffect = useRef(false);
-  const usernameCacheRef = useRef({});
+
   const latestRequestRef = useRef(0);
   const sentinelRef = useRef(null);
 
@@ -32,52 +33,24 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
   const pageStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const pageEnd = Math.min(page * PAGE_SIZE, total);
 
-  const enrichRoutesWithUsernames = useCallback(async (items) => {
-    const creatorIds = [
-      ...new Set(
-        items
-          .filter((item) => item.creator_id && (!item.author_username || item.author_username === 'climber'))
-          .map((item) => item.creator_id)
-      ),
-    ];
-    const missingIds = creatorIds.filter((id) => !usernameCacheRef.current[id]);
-
-    if (missingIds.length > 0) {
-      await Promise.all(
-        missingIds.map(async (id) => {
-          try {
-            const res = await fetch(`${API_BASE}/profiles/${id}`);
-            if (!res.ok) return;
-            const profile = await res.json();
-            if (profile?.username) {
-              usernameCacheRef.current[id] = profile.username;
-            }
-          } catch (err) {
-            // ignore per-user lookup failures
-          }
-        })
-      );
-    }
-
-    return items.map((item) => {
-      const resolvedUsername =
-        usernameCacheRef.current[item.creator_id] ||
+  const enrichRoutesWithUsernames = useCallback((items) => {
+    // Backend already resolves author_username via _attach_author_usernames().
+    // Just normalise the field name — no extra API calls needed.
+    return items.map((item) => ({
+      ...item,
+      author_username:
         item.author_username ||
         item.authorUsername ||
         item.setter_username ||
-        'climber';
-
-      return {
-        ...item,
-        author_username: resolvedUsername,
-      };
-    });
+        'climber',
+    }));
   }, []);
 
   const fetchPage = useCallback(async (search, difficulty, pageNum, append = false) => {
     const requestId = latestRequestRef.current + 1;
     latestRequestRef.current = requestId;
-    setLoading(true);
+    if (append) setLoadingMore(true);
+    else setLoading(true);
     setError(null);
 
     try {
@@ -89,7 +62,7 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
       if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
 
       const data = await res.json();
-      const enrichedItems = await enrichRoutesWithUsernames(data.items || []);
+      const enrichedItems = enrichRoutesWithUsernames(data.items || []);
       if (requestId !== latestRequestRef.current) return;
       setRoutes((prev) => append ? [...prev, ...enrichedItems] : enrichedItems);
       const fetchedTotal = data.total ?? 0;
@@ -102,6 +75,7 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
     } finally {
       if (requestId === latestRequestRef.current) {
         setLoading(false);
+        setLoadingMore(false);
       }
     }
   }, [enrichRoutesWithUsernames]);
@@ -109,8 +83,8 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
   useEffect(() => {
     const cached = getPrefetchedRoutes();
     if (cached) {
-      const applyCached = async () => {
-        const enrichedItems = await enrichRoutesWithUsernames(cached.items || []);
+      const applyCached = () => {
+        const enrichedItems = enrichRoutesWithUsernames(cached.items || []);
         if (latestRequestRef.current !== 0) return;
         setRoutes(enrichedItems);
         setTotal(cached.total);
@@ -167,7 +141,7 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
     if (!sentinel) return;
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && !loading && hasMore) {
+        if (entries[0].isIntersecting && !loading && !loadingMore && hasMore) {
           const nextPage = page + 1;
           setPage(nextPage);
           fetchPage(activeSearch, difficultyFilter, nextPage, true);
@@ -177,7 +151,7 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [viewMode, loading, hasMore, page, fetchPage, activeSearch, difficultyFilter]);
+  }, [viewMode, loading, loadingMore, hasMore, page, fetchPage, activeSearch, difficultyFilter]);
 
   const visiblePages = useMemo(() => {
     const pages = [];
@@ -381,7 +355,7 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
           </div>
         )}
 
-        {loading && (
+        {loading && routes.length === 0 && (
           <div className="text-gray-600 font-semibold bg-white border-2 border-dashed border-gray-300 p-8 text-center">
             Loading routes...
           </div>
@@ -393,7 +367,7 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
           </div>
         )}
 
-        {!loading && filteredRoutes.length > 0 && (
+        {filteredRoutes.length > 0 && (
           <div className="columns-2 md:columns-3 lg:columns-4 gap-4 md:gap-6">
             {filteredRoutes.map(({ id, grade, sends, name, holds, authorUsername }) => (
               <ProblemGridCard
@@ -438,7 +412,7 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
 
         {viewMode === 'scroll' && (
           <div ref={sentinelRef} className="py-6 text-center text-xs font-semibold text-gray-400">
-            {loading ? 'Loading more...' : hasMore ? '' : 'All routes loaded'}
+            {loadingMore ? 'Loading more...' : hasMore ? '' : 'All routes loaded'}
           </div>
         )}
       </div>
