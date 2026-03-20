@@ -810,3 +810,360 @@ class TestProfilesRyan:
     def test_delete_profile_non_existent_behavior(self):
         response = client.delete("/profiles/user_does_not_exist")
         assert response.status_code in (200, 404, 500)
+
+
+# ============================================================
+# Final Phase Tests
+# ============================================================
+
+import math
+from pydantic import ValidationError
+from app.models import (
+    Hold, RouteCreate, RouteUpdate,
+    ProfileBase, SaveResponse, SendResponse,
+)
+from app.services import led
+from app.services import ml_predictor
+
+
+# ============== PYDANTIC MODEL UNIT TESTS ==============
+
+class TestHoldModelFinal:
+    def test_valid_hold(self):
+        h = Hold(x=5.0, y=7.0, color="blue")
+        assert h.x == 5.0
+        assert h.y == 7.0
+        assert h.color == "blue"
+
+    def test_hold_missing_x_raises(self):
+        with pytest.raises(ValidationError):
+            Hold(y=7.0, color="blue")
+
+    def test_hold_missing_y_raises(self):
+        with pytest.raises(ValidationError):
+            Hold(x=5.0, color="blue")
+
+    def test_hold_missing_color_raises(self):
+        with pytest.raises(ValidationError):
+            Hold(x=5.0, y=7.0)
+
+    def test_hold_integer_coords_coerced_to_float(self):
+        h = Hold(x=3, y=4, color="green")
+        assert h.x == 3.0
+        assert h.y == 4.0
+
+
+class TestRouteCreateModelFinal:
+    def test_valid_route_create(self):
+        r = RouteCreate(
+            name="Test Route",
+            difficulty="v4",
+            holds=[{"x": 5.0, "y": 7.0, "color": "blue"}],
+            angle=40,
+            visibility="public",
+        )
+        assert r.name == "Test Route"
+        assert len(r.holds) == 1
+
+    def test_missing_name_raises(self):
+        with pytest.raises(ValidationError):
+            RouteCreate(difficulty="v4", holds=[{"x": 5.0, "y": 7.0, "color": "blue"}])
+
+    def test_empty_name_raises(self):
+        with pytest.raises(ValidationError):
+            RouteCreate(name="", difficulty="v4", holds=[{"x": 5.0, "y": 7.0, "color": "blue"}])
+
+    def test_name_over_255_chars_raises(self):
+        with pytest.raises(ValidationError):
+            RouteCreate(name="x" * 256, difficulty="v4", holds=[{"x": 5.0, "y": 7.0, "color": "blue"}])
+
+    def test_missing_holds_raises(self):
+        with pytest.raises(ValidationError):
+            RouteCreate(name="Test", difficulty="v4")
+
+    def test_angle_defaults_to_40(self):
+        r = RouteCreate(name="T", difficulty="v4", holds=[{"x": 1.0, "y": 1.0, "color": "green"}])
+        assert r.angle == 40
+
+    def test_angle_above_70_raises(self):
+        with pytest.raises(ValidationError):
+            RouteCreate(name="T", difficulty="v4", holds=[{"x": 1.0, "y": 1.0, "color": "green"}], angle=71)
+
+    def test_angle_below_0_raises(self):
+        with pytest.raises(ValidationError):
+            RouteCreate(name="T", difficulty="v4", holds=[{"x": 1.0, "y": 1.0, "color": "green"}], angle=-1)
+
+    def test_visibility_defaults_to_public(self):
+        r = RouteCreate(name="T", difficulty="v4", holds=[{"x": 1.0, "y": 1.0, "color": "green"}])
+        assert r.visibility == "public"
+
+    def test_multiple_holds_accepted(self):
+        holds = [
+            {"x": 1.0, "y": 1.0, "color": "green"},
+            {"x": 3.0, "y": 5.0, "color": "blue"},
+            {"x": 6.0, "y": 14.0, "color": "red"},
+        ]
+        r = RouteCreate(name="Multi", difficulty="v3", holds=holds)
+        assert len(r.holds) == 3
+
+    def test_hold_missing_required_field_raises(self):
+        with pytest.raises(ValidationError):
+            RouteCreate(name="T", difficulty="v4", holds=[{"x": 1.0, "y": 1.0}])
+
+
+class TestRouteUpdateModelFinal:
+    def test_all_fields_optional(self):
+        u = RouteUpdate()
+        assert u.name is None
+        assert u.difficulty is None
+        assert u.angle is None
+
+    def test_partial_update_accepted(self):
+        u = RouteUpdate(name="New Name")
+        assert u.name == "New Name"
+        assert u.difficulty is None
+
+    def test_angle_out_of_range_raises(self):
+        with pytest.raises(ValidationError):
+            RouteUpdate(angle=100)
+
+    def test_empty_name_raises(self):
+        with pytest.raises(ValidationError):
+            RouteUpdate(name="")
+
+
+class TestProfileBaseModelFinal:
+    def test_valid_profile(self):
+        p = ProfileBase(name="Test", email="t@example.com", username="testuser")
+        assert p.name == "Test"
+        assert p.email == "t@example.com"
+
+    def test_missing_email_raises(self):
+        with pytest.raises(ValidationError):
+            ProfileBase(name="Test", username="testuser")
+
+    def test_missing_username_raises(self):
+        with pytest.raises(ValidationError):
+            ProfileBase(name="Test", email="t@example.com")
+
+    def test_photo_url_defaults_to_none(self):
+        p = ProfileBase(name="T", email="t@example.com", username="u")
+        assert p.photo_url is None
+
+    def test_climber_level_defaults_to_none(self):
+        p = ProfileBase(name="T", email="t@example.com", username="u")
+        assert p.climber_level is None
+
+
+class TestSaveResponseModelFinal:
+    def test_saved_true_with_timestamp(self):
+        from datetime import datetime
+        r = SaveResponse(saved=True, saved_at=datetime.now())
+        assert r.saved is True
+
+    def test_saved_false_no_timestamp(self):
+        r = SaveResponse(saved=False)
+        assert r.saved is False
+        assert r.saved_at is None
+
+
+class TestSendResponseModelFinal:
+    def test_sent_with_count(self):
+        r = SendResponse(sent=True, send_count=5)
+        assert r.sent is True
+        assert r.send_count == 5
+
+    def test_unsent_zero_count(self):
+        r = SendResponse(sent=False, send_count=0)
+        assert r.sent is False
+        assert r.send_count == 0
+
+
+# ============== LED SERVICE UNIT TESTS ==============
+
+class TestGetRgbFinal:
+    def test_green(self):
+        assert led.get_rgb("green") == (34, 197, 94)
+
+    def test_blue(self):
+        assert led.get_rgb("blue") == (5, 103, 232)
+
+    def test_yellow(self):
+        assert led.get_rgb("yellow") == (234, 179, 8)
+
+    def test_red(self):
+        assert led.get_rgb("red") == (239, 68, 68)
+
+    def test_unknown_color_returns_white(self):
+        assert led.get_rgb("purple") == (255, 255, 255)
+
+    def test_empty_string_returns_white(self):
+        assert led.get_rgb("") == (255, 255, 255)
+
+    def test_case_insensitive_green(self):
+        assert led.get_rgb("GREEN") == led.get_rgb("green")
+
+    def test_case_insensitive_blue(self):
+        assert led.get_rgb("Blue") == led.get_rgb("blue")
+
+
+class TestGetLedIndexFinal:
+    def test_unmapped_coordinate_returns_none(self):
+        assert led.get_led_index(0.0, 0.0) is None
+
+    def test_unmapped_large_coordinate_returns_none(self):
+        assert led.get_led_index(99.0, 99.0) is None
+
+    def test_mapped_coordinate_returns_index(self, monkeypatch):
+        monkeypatch.setitem(led.COORD_TO_LED, (5, 7), 42)
+        assert led.get_led_index(5, 7) == 42
+
+
+class TestLedConstantsFinal:
+    def test_led_count_is_positive(self):
+        assert led.LED_COUNT > 0
+
+    def test_colors_dict_has_all_four_roles(self):
+        for color in ("green", "blue", "yellow", "red"):
+            assert color in led.COLORS
+
+    def test_all_rgb_values_are_valid(self):
+        for rgb in led.COLORS.values():
+            assert len(rgb) == 3
+            assert all(0 <= ch <= 255 for ch in rgb)
+
+
+class TestLedUnavailableFinal:
+    def test_is_available_returns_false_in_dev(self):
+        assert led.is_available() is False
+
+    def test_clear_returns_false_when_unavailable(self):
+        assert led.clear() is False
+
+    def test_display_holds_returns_zero_when_unavailable(self):
+        holds = [{"x": 5.0, "y": 7.0, "color": "blue"}]
+        assert led.display_holds(holds) == 0
+
+    def test_display_holds_empty_list_returns_zero(self):
+        assert led.display_holds([]) == 0
+
+
+# ============== ML PREDICTOR UNIT TESTS ==============
+
+class TestMlIsAvailableFinal:
+    def test_returns_a_bool(self):
+        assert isinstance(ml_predictor.is_available(), bool)
+
+
+class TestMlFallbackPredictionFinal:
+    def test_returns_expected_keys(self):
+        result = ml_predictor._fallback_prediction([], 40)
+        assert "suggested_grade" in result
+        assert "raw" in result
+        assert "confidence" in result
+        assert "error" in result
+
+    def test_suggested_grade_is_na(self):
+        assert ml_predictor._fallback_prediction([], 40)["suggested_grade"] == "N/A"
+
+    def test_raw_is_zero(self):
+        assert ml_predictor._fallback_prediction([], 40)["raw"] == 0.0
+
+    def test_confidence_is_zero(self):
+        assert ml_predictor._fallback_prediction([], 40)["confidence"] == 0.0
+
+    def test_holds_and_angle_ignored_gracefully(self):
+        holds = [{"x": 3.0, "y": 4.0, "color": "blue"}]
+        result = ml_predictor._fallback_prediction(holds, 60)
+        assert result["suggested_grade"] == "N/A"
+
+
+class TestMlBuildFallbackPathInfoFinal:
+    def test_empty_holds(self):
+        r = ml_predictor._build_fallback_path_info([])
+        assert r["valid"] is True
+        assert r["move_distances"] == []
+        assert r["n_moves"] == 1
+
+    def test_single_hold_no_moves(self):
+        holds = [{"ui_x": 3.0, "ui_y": 5.0}]
+        r = ml_predictor._build_fallback_path_info(holds)
+        assert len(r["move_distances"]) == 0
+        assert r["n_moves"] == 1
+
+    def test_two_holds_distance_calculated(self):
+        holds = [{"ui_x": 0.0, "ui_y": 0.0}, {"ui_x": 3.0, "ui_y": 4.0}]
+        r = ml_predictor._build_fallback_path_info(holds)
+        assert len(r["move_distances"]) == 1
+        assert abs(r["move_distances"][0] - 5.0) < 0.001  # 3-4-5 right triangle
+
+    def test_upward_moves_counted(self):
+        holds = [
+            {"ui_x": 0.0, "ui_y": 0.0},
+            {"ui_x": 0.0, "ui_y": 2.0},
+            {"ui_x": 0.0, "ui_y": 5.0},
+        ]
+        r = ml_predictor._build_fallback_path_info(holds)
+        assert r["n_up"] == 2
+
+    def test_required_keys_all_present(self):
+        holds = [{"ui_x": 1.0, "ui_y": 1.0}, {"ui_x": 2.0, "ui_y": 3.0}]
+        r = ml_predictor._build_fallback_path_info(holds)
+        for key in ("valid", "move_distances", "move_dys", "n_up", "n_lateral", "n_moves", "dir_changes"):
+            assert key in r
+
+
+class TestMlLoadRatingsFinal:
+    def test_returns_a_dict(self):
+        result = ml_predictor._load_ratings()
+        assert isinstance(result, dict)
+
+    def test_returns_empty_dict_when_file_missing(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(ml_predictor, "RATINGS_PATH", str(tmp_path / "missing.json"))
+        assert ml_predictor._load_ratings() == {}
+
+    def test_loads_valid_entries(self, tmp_path, monkeypatch):
+        import json
+        data = [
+            {"x": "5", "y": "7", "difficulty": "3", "type": "regular", "rotation": 0},
+            {"x": "2", "y": "3", "difficulty": "5", "type": "foothold", "rotation": 90},
+        ]
+        f = tmp_path / "holdratings.json"
+        f.write_text(json.dumps(data))
+        monkeypatch.setattr(ml_predictor, "RATINGS_PATH", str(f))
+        result = ml_predictor._load_ratings()
+        assert (5.0, 7.0) in result
+        assert result[(5.0, 7.0)]["type"] == "edge"   # "regular" maps to "edge"
+        assert result[(2.0, 3.0)]["type"] == "foothold"
+
+    def test_skips_malformed_entries(self, tmp_path, monkeypatch):
+        import json
+        data = [
+            {"x": "bad", "y": "7", "difficulty": "3", "type": "regular"},  # invalid
+            {"x": "5", "y": "7", "difficulty": "3", "type": "regular"},    # valid
+        ]
+        f = tmp_path / "holdratings.json"
+        f.write_text(json.dumps(data))
+        monkeypatch.setattr(ml_predictor, "RATINGS_PATH", str(f))
+        result = ml_predictor._load_ratings()
+        assert (5.0, 7.0) in result
+
+
+class TestMlColorToRoleFinal:
+    def test_all_four_colors_present(self):
+        for color in ("green", "blue", "yellow", "red"):
+            assert color in ml_predictor.COLOR_TO_ROLE
+
+    def test_no_role_is_none(self):
+        for role in ml_predictor.COLOR_TO_ROLE.values():
+            assert role is not None
+
+
+class TestMlPredictGradeFallbackFinal:
+    def test_returns_fallback_when_model_unavailable(self, monkeypatch):
+        monkeypatch.setattr(ml_predictor, "_initialized", False)
+        monkeypatch.setattr(ml_predictor, "initialize", lambda: False)
+        result = ml_predictor.predict_grade([{"x": 3.0, "y": 4.0, "color": "blue"}], 40)
+        assert "suggested_grade" in result
+        assert "raw" in result
+        assert "confidence" in result
