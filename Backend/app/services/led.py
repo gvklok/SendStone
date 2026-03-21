@@ -56,12 +56,12 @@ LEDS_PER_ROW = 5             # LEDs across each physical row of the snake
 BOARD_X_MAX = 10.0
 BOARD_Y_MAX = 14.0
 
-# Hold color → RGB (matches frontend COLOR_CYCLE)
+# Hold color → BGR (LED strip uses Blue-Green-Red byte order)
 COLORS: Dict[str, tuple] = {
-    "green":  (0,   200, 60),    # Start holds  — bright green
-    "blue":   (5,   103, 232),   # Hand holds   — blue
-    "yellow": (234, 179, 8),     # Foot holds   — yellow
-    "red":    (239, 68,  68),    # Finish holds — red
+    "green":  (60,  200, 0),     # Start holds  — bright green
+    "blue":   (232, 103, 5),     # Hand holds   — blue
+    "yellow": (8,   179, 234),   # Foot holds   — yellow
+    "red":    (68,  68,  239),   # Finish holds — red
 }
 
 # Priority order when two holds share one LED (higher index = higher priority)
@@ -126,7 +126,6 @@ def _init_strip():
             LED_PIN, LED_COUNT,
             brightness=BRIGHTNESS,
             auto_write=False,
-            pixel_order=_neopixel.GRB,
         )
         return True
     except Exception as e:

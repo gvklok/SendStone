@@ -21,6 +21,17 @@ const FullscreenPost = ({ post, onClose, onSave, onSend, onRemix, liked = false,
   const handleSendToBoard = async () => {
     if (isLighting || !post?.id) return;
     setIsLighting(true);
+
+    // Toggle: if already lit, turn off
+    if (ledStatus === 'lit') {
+      try {
+        await fetch(`${API_BASE}/hardware/led/off`, { method: 'POST' });
+      } catch {}
+      setLedStatus(null);
+      setIsLighting(false);
+      return;
+    }
+
     setLedStatus(null);
     try {
       const res = await fetch(`${API_BASE}/hardware/led/routes/${encodeURIComponent(post.id)}`, {
@@ -71,10 +82,17 @@ const FullscreenPost = ({ post, onClose, onSave, onSend, onRemix, liked = false,
 
   if (!post) return null;
 
+  const handleClose = () => {
+    if (ledStatus === 'lit') {
+      fetch(`${API_BASE}/hardware/led/off`, { method: 'POST' }).catch(() => {});
+    }
+    onClose?.();
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
-      onClick={onClose}
+      onClick={handleClose}
     >
       {/* Outer card — let it size from content, cap at 90vh, scroll when needed */}
       <div
@@ -84,7 +102,7 @@ const FullscreenPost = ({ post, onClose, onSave, onSend, onRemix, liked = false,
         {/* Top bar — sticky so it's always visible */}
         <div className="sticky top-0 z-10 bg-white/90 backdrop-blur flex items-center justify-between px-5 py-3 border-b border-gray-100">
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="p-2 rounded-full hover:bg-gray-100 transition-colors"
             aria-label="Close"
           >
