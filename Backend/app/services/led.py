@@ -84,8 +84,7 @@ def _build_led_positions() -> List[tuple]:
 
     positions = []
     for row in range(num_rows):
-        # Flip Y: LED row 0 starts at the top of the board (y=BOARD_Y_MAX)
-        board_y = BOARD_Y_MAX - (row * y_step)
+        board_y = row * y_step
         xs = [col * x_step for col in range(LEDS_PER_ROW)]
         if row % 2 == 1:          # odd rows run right → left
             xs = list(reversed(xs))
@@ -99,10 +98,7 @@ _LED_POSITIONS: List[tuple] = _build_led_positions()
 
 
 def _nearest_led(hold_x: float, hold_y: float) -> int:
-    """Return the LED index whose physical position is closest to (hold_x, hold_y).
-    X is mirrored (flipped over Y axis) so the board orientation matches the LED strip.
-    """
-    hold_x = BOARD_X_MAX - hold_x   # flip: x=0 → x=10, x=10 → x=0
+    """Return the LED index whose physical position is closest to (hold_x, hold_y)."""
     best_idx  = 0
     best_dist = float("inf")
     for i, (lx, ly) in enumerate(_LED_POSITIONS):
