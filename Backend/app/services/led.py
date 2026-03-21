@@ -56,12 +56,12 @@ LEDS_PER_ROW = 5             # LEDs across each physical row of the snake
 BOARD_X_MAX = 10.0
 BOARD_Y_MAX = 14.0
 
-# Hold color → BGR (LED strip uses Blue-Green-Red byte order)
+# Hold color → RGB (library converts to GRB wire order via pixel_order=GRB)
 COLORS: Dict[str, tuple] = {
-    "green":  (60,  200, 0),     # Start holds  — bright green
-    "blue":   (232, 103, 5),     # Hand holds   — blue
-    "yellow": (8,   179, 234),   # Foot holds   — yellow
-    "red":    (68,  68,  239),   # Finish holds — red
+    "green":  (0,   200, 60),    # Start holds  — green
+    "blue":   (5,   103, 232),   # Hand holds   — blue
+    "yellow": (234, 179, 8),     # Foot holds   — yellow
+    "red":    (239, 68,  68),    # Finish holds — red
 }
 
 # Priority order when two holds share one LED (higher index = higher priority)
@@ -84,7 +84,8 @@ def _build_led_positions() -> List[tuple]:
 
     positions = []
     for row in range(num_rows):
-        board_y = row * y_step
+        # Flip Y: LED row 0 starts at the top of the board (y=BOARD_Y_MAX)
+        board_y = BOARD_Y_MAX - (row * y_step)
         xs = [col * x_step for col in range(LEDS_PER_ROW)]
         if row % 2 == 1:          # odd rows run right → left
             xs = list(reversed(xs))
@@ -98,7 +99,10 @@ _LED_POSITIONS: List[tuple] = _build_led_positions()
 
 
 def _nearest_led(hold_x: float, hold_y: float) -> int:
-    """Return the LED index whose physical position is closest to (hold_x, hold_y)."""
+    """Return the LED index whose physical position is closest to (hold_x, hold_y).
+    X is mirrored (flipped over Y axis) so the board orientation matches the LED strip.
+    """
+    hold_x = BOARD_X_MAX - hold_x   # flip: x=0 → x=10, x=10 → x=0
     best_idx  = 0
     best_dist = float("inf")
     for i, (lx, ly) in enumerate(_LED_POSITIONS):
@@ -126,6 +130,7 @@ def _init_strip():
             LED_PIN, LED_COUNT,
             brightness=BRIGHTNESS,
             auto_write=False,
+            pixel_order=_neopixel.GRB,
         )
         return True
     except Exception as e:
