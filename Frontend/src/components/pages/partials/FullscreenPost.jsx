@@ -16,17 +16,18 @@ const FullscreenPost = ({ post, onClose, onSave, onSend, onSendToBoard, onRemix,
   }, [post?.id]);
 
   const handlePredictGrade = async () => {
+    if (isPredicting) return;
+    // Capture post data before await so stale closure can't read a different post
+    const holds = post.holds || [];
+    const angle = post.angle || 40;
     setPredictionError(null);
     setIsPredicting(true);
 
     try {
-      const response = await fetch('${API_BASE}/ml/predict', {
+      const response = await fetch(`${API_BASE}/ml/predict`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          holds: post.holds || [],
-          angle: post.angle || 40,
-        }),
+        body: JSON.stringify({ holds, angle }),
       });
 
       if (response.ok) {

@@ -138,7 +138,7 @@ const AuthModal = ({ open, onClose, onAuthenticated, targetTab, externalError })
   // Sync user profile to profiles table via backend API
   const syncProfileToDatabase = async (userId, userData) => {
     try {
-      const response = await fetch('${API_BASE}/profiles', {
+      const response = await fetch(`${API_BASE}/profiles`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

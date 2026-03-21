@@ -47,6 +47,14 @@ export function getPrefetchedRoutes() {
 }
 
 /**
+ * Returns the in-flight promise (if prefetch hasn't resolved yet),
+ * so callers can await it instead of firing a duplicate fetch.
+ */
+export function getPrefetchPromise() {
+  return _promise;
+}
+
+/**
  * Clears the cache (e.g. after the consumer has consumed it,
  * or when a fresh fetch is triggered).
  */

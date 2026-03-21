@@ -2,11 +2,49 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Search, RefreshCw, ChevronDown, List, Layers } from 'lucide-react';
 import ProblemGridCard from '../common/ProblemGridCard';
 import FullscreenPost from './partials/FullscreenPost';
-import { getPrefetchedRoutes, clearPrefetchedRoutes } from '../../routeCache';
+import { getPrefetchedRoutes, getPrefetchPromise, clearPrefetchedRoutes } from '../../routeCache';
 
 const API_BASE = process.env.REACT_APP_API_URL;
 const PAGE_SIZE = 12;
 const EXPLORE_VIEW_KEY = 'sendstone_explore_view';
+
+// Defined OUTSIDE ExplorePage so React never sees a new component type on re-render.
+// Defining it inside would cause a full unmount/remount on every state change.
+const PaginationNav = ({ page, totalPages, pageStart, pageEnd, total, loading, visiblePages, goToPage }) => (
+  <div className="flex flex-wrap items-center justify-between gap-3 bg-white border-2 border-gray-200 rounded-xl px-3 py-2">
+    <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+      Showing {pageStart}–{pageEnd} of {total}
+    </span>
+    <div className="flex items-center gap-1">
+      <button
+        onClick={() => goToPage(page - 1)}
+        disabled={loading || page === 1}
+        className="px-3 py-1.5 text-xs font-bold uppercase border border-gray-300 rounded-md bg-white disabled:opacity-40"
+      >
+        Prev
+      </button>
+      {visiblePages.map((p) => (
+        <button
+          key={p}
+          onClick={() => goToPage(p)}
+          disabled={loading}
+          className={`px-3 py-1.5 text-xs font-bold border rounded-md ${
+            p === page ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-800 border-gray-300'
+          }`}
+        >
+          {p}
+        </button>
+      ))}
+      <button
+        onClick={() => goToPage(page + 1)}
+        disabled={loading || page === totalPages}
+        className="px-3 py-1.5 text-xs font-bold uppercase border border-gray-300 rounded-md bg-white disabled:opacity-40"
+      >
+        Next
+      </button>
+    </div>
+  </div>
+);
 
 const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(), openPostId, clearOpenPost, onOpenPost, onRemix }) => {
   const [routes, setRoutes] = useState([]);
@@ -28,6 +66,10 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
 
   const latestRequestRef = useRef(0);
   const sentinelRef = useRef(null);
+
+  // Always-current values for observer callbacks and auto-fill effect (avoids stale closures)
+  const scrollStateRef = useRef({});
+  scrollStateRef.current = { loading, loadingMore, hasMore, page, activeSearch, difficultyFilter, viewMode };
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const pageStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
@@ -72,6 +114,7 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
       if (requestId !== latestRequestRef.current) return;
       console.error('Error fetching routes:', err);
       setError(err.message);
+      setHasMore(false); // stop infinite scroll from retrying on error
     } finally {
       if (requestId === latestRequestRef.current) {
         setLoading(false);
@@ -81,21 +124,31 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
   }, [enrichRoutesWithUsernames]);
 
   useEffect(() => {
+    const applyCached = (data) => {
+      if (latestRequestRef.current !== 0) return;
+      setRoutes(enrichRoutesWithUsernames(data.items || []));
+      setTotal(data.total ?? 0);
+      setPage(1);
+      setLoading(false);
+      clearPrefetchedRoutes();
+    };
+
     const cached = getPrefetchedRoutes();
     if (cached) {
-      const applyCached = () => {
-        const enrichedItems = enrichRoutesWithUsernames(cached.items || []);
-        if (latestRequestRef.current !== 0) return;
-        setRoutes(enrichedItems);
-        setTotal(cached.total);
-        setPage(1);
-        setLoading(false);
-        clearPrefetchedRoutes();
-      };
-      applyCached();
+      // Prefetch already resolved — use it instantly
+      applyCached(cached);
     } else {
-      setPage(1);
-      fetchPage('', '', 1);
+      const inflight = getPrefetchPromise();
+      if (inflight) {
+        // Prefetch is in-flight — await it instead of firing a duplicate fetch
+        inflight.then((result) => {
+          if (result) applyCached(result);
+          else fetchPage('', '', 1);
+        });
+      } else {
+        setPage(1);
+        fetchPage('', '', 1);
+      }
     }
   }, [fetchPage, enrichRoutesWithUsernames]);
 
@@ -105,6 +158,7 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
       return;
     }
     setPage(1);
+    setHasMore(true);
     fetchPage(activeSearch, difficultyFilter, 1);
   }, [difficultyFilter, activeSearch, fetchPage]);
 
@@ -130,18 +184,22 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
     setViewMode(next);
     try { localStorage.setItem(EXPLORE_VIEW_KEY, next); } catch {}
     setPage(1);
-    setRoutes([]);
+    setHasMore(true);
+    // Don't clear routes — avoid blank flash; fetchPage will replace them
     fetchPage(activeSearch, difficultyFilter, 1, false);
   }, [viewMode, fetchPage, activeSearch, difficultyFilter]);
 
-  // Infinite scroll: load next page when sentinel comes into view
+  // Infinite scroll: stable observer that reads current state from ref
+  // Only recreated when viewMode changes — avoids cascade from loading state changes
   useEffect(() => {
     if (viewMode !== 'scroll') return;
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
     const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && !loading && !loadingMore && hasMore) {
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        const { loading, loadingMore, hasMore, page, activeSearch, difficultyFilter } = scrollStateRef.current;
+        if (!loading && !loadingMore && hasMore) {
           const nextPage = page + 1;
           setPage(nextPage);
           fetchPage(activeSearch, difficultyFilter, nextPage, true);
@@ -151,7 +209,23 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [viewMode, loading, loadingMore, hasMore, page, fetchPage, activeSearch, difficultyFilter]);
+  }, [viewMode, fetchPage]); // stable — no loading/page/hasMore in deps
+
+  // After a page finishes loading in scroll mode, auto-load the next page
+  // if the sentinel is already visible (routes don't fill the screen yet).
+  // Reads from scrollStateRef so values are never stale.
+  useEffect(() => {
+    const s = scrollStateRef.current;
+    if (s.viewMode !== 'scroll' || s.loading || s.loadingMore || !s.hasMore) return;
+    if (!sentinelRef.current) return;
+    const rect = sentinelRef.current.getBoundingClientRect();
+    if (rect.top < window.innerHeight && rect.bottom >= 0) {
+      const nextPage = s.page + 1;
+      setPage(nextPage);
+      fetchPage(s.activeSearch, s.difficultyFilter, nextPage, true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
 
   const visiblePages = useMemo(() => {
     const pages = [];
@@ -160,44 +234,6 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
     for (let p = start; p <= end; p += 1) pages.push(p);
     return pages;
   }, [page, totalPages]);
-
-  const PaginationNav = () => (
-    <div className="flex flex-wrap items-center justify-between gap-3 bg-white border-2 border-gray-200 rounded-xl px-3 py-2">
-      <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
-        Showing {pageStart}-{pageEnd} of {total}
-      </span>
-      <div className="flex items-center gap-1">
-        <button
-          onClick={() => goToPage(page - 1)}
-          disabled={loading || page === 1}
-          className="px-3 py-1.5 text-xs font-bold uppercase border border-gray-300 rounded-md bg-white disabled:opacity-40"
-        >
-          Prev
-        </button>
-        {visiblePages.map((p) => (
-          <button
-            key={p}
-            onClick={() => goToPage(p)}
-            disabled={loading}
-            className={`px-3 py-1.5 text-xs font-bold border rounded-md ${
-              p === page
-                ? 'bg-gray-900 text-white border-gray-900'
-                : 'bg-white text-gray-800 border-gray-300'
-            }`}
-          >
-            {p}
-          </button>
-        ))}
-        <button
-          onClick={() => goToPage(page + 1)}
-          disabled={loading || page === totalPages}
-          className="px-3 py-1.5 text-xs font-bold uppercase border border-gray-300 rounded-md bg-white disabled:opacity-40"
-        >
-          Next
-        </button>
-      </div>
-    </div>
-  );
 
   const mappedRoutes = useMemo(() => {
     return routes.map((route) => ({
@@ -349,9 +385,12 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
           </div>
         )}
 
-        {!loading && total > 0 && viewMode === 'pagination' && (
+        {total > 0 && viewMode === 'pagination' && (
           <div className="mb-4">
-            <PaginationNav />
+            <PaginationNav
+              page={page} totalPages={totalPages} pageStart={pageStart} pageEnd={pageEnd}
+              total={total} loading={loading} visiblePages={visiblePages} goToPage={goToPage}
+            />
           </div>
         )}
 
@@ -368,45 +407,53 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
         )}
 
         {filteredRoutes.length > 0 && (
-          <div className="columns-2 md:columns-3 lg:columns-4 gap-4 md:gap-6">
-            {filteredRoutes.map(({ id, grade, sends, name, holds, authorUsername }) => (
-              <ProblemGridCard
-                key={id}
-                id={id}
-                grade={grade}
-                sends={sends}
-                name={name}
-                holds={holds}
-                authorUsername={authorUsername}
-                saved={savedIds.has(id) || savedIds.has(String(id))}
-                liked={likedIds.has(id)}
-                onOpen={() => {
-                  const post = mappedRoutes.find((p) => p.id === id);
-                  if (post) {
-                    setOpenPost(post);
-                    onOpenPost?.(post);
-                  }
-                }}
-                onBookmark={() => onSave?.(id)}
-                onHeart={async () => {
-                  const result = await onSend?.(id);
-                  if (result && typeof result.sendCount === 'number') {
-                    setRoutes((prev) =>
-                      prev.map((r) => (String(r.id) === String(id) ? { ...r, send_count: result.sendCount } : r))
-                    );
-                    setOpenPost((prev) =>
-                      prev && String(prev.id) === String(id) ? { ...prev, sends: result.sendCount } : prev
-                    );
-                  }
-                }}
-              />
-            ))}
+          <div className="relative">
+            {loading && (
+              <div className="absolute inset-0 bg-neutral-100/70 z-10 rounded-xl pointer-events-none" />
+            )}
+            <div className="columns-2 md:columns-3 lg:columns-4 gap-4 md:gap-6">
+              {filteredRoutes.map(({ id, grade, sends, name, holds, authorUsername }) => (
+                <ProblemGridCard
+                  key={id}
+                  id={id}
+                  grade={grade}
+                  sends={sends}
+                  name={name}
+                  holds={holds}
+                  authorUsername={authorUsername}
+                  saved={savedIds.has(id) || savedIds.has(String(id))}
+                  liked={likedIds.has(id)}
+                  onOpen={() => {
+                    const post = mappedRoutes.find((p) => p.id === id);
+                    if (post) {
+                      setOpenPost(post);
+                      onOpenPost?.(post);
+                    }
+                  }}
+                  onBookmark={() => onSave?.(id)}
+                  onHeart={async () => {
+                    const result = await onSend?.(id);
+                    if (result && typeof result.sendCount === 'number') {
+                      setRoutes((prev) =>
+                        prev.map((r) => (String(r.id) === String(id) ? { ...r, send_count: result.sendCount } : r))
+                      );
+                      setOpenPost((prev) =>
+                        prev && String(prev.id) === String(id) ? { ...prev, sends: result.sendCount } : prev
+                      );
+                    }
+                  }}
+                />
+              ))}
+            </div>
           </div>
         )}
 
-        {!loading && total > 0 && viewMode === 'pagination' && (
+        {total > 0 && viewMode === 'pagination' && (
           <div className="mt-6">
-            <PaginationNav />
+            <PaginationNav
+              page={page} totalPages={totalPages} pageStart={pageStart} pageEnd={pageEnd}
+              total={total} loading={loading} visiblePages={visiblePages} goToPage={goToPage}
+            />
           </div>
         )}
 

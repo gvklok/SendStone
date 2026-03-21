@@ -51,6 +51,7 @@ export default function ClimbingBoardApp() {
     community_ascensions: null,
   });
   const hasActiveLoginSessionRef = useRef(false);
+  const hydrateRetryTimerRef = useRef(null);
 
   const restrictedTabs = ['create', 'profile', 'saved', 'yourRoutes'];
   const normalizeUiSettings = (settings) => {
@@ -175,7 +176,7 @@ export default function ClimbingBoardApp() {
       // ignore logging failures
     }
   };
-  const hydrateUserEngagement = async (userData) => {
+  const hydrateUserEngagement = async (userData, attempt = 0) => {
     if (!userData?.id || !userData?.email) return;
     try {
       const [savedRes, sentRes] = await Promise.all([
@@ -222,13 +223,18 @@ export default function ClimbingBoardApp() {
         });
       }
     } catch (error) {
-      console.error('Failed to hydrate user engagement:', error);
+      if (attempt < 3 && hasActiveLoginSessionRef.current) {
+        const delay = (attempt + 1) * 2000; // 2s, 4s, 6s
+        hydrateRetryTimerRef.current = setTimeout(() => hydrateUserEngagement(userData, attempt + 1), delay);
+      } else if (attempt >= 3) {
+        console.error('Failed to hydrate user engagement:', error);
+      }
     }
   };
   // Sync user profile to profiles table via backend API
   const syncProfileToDatabase = async (userId, userData) => {
     try {
-      const response = await fetch('${API_BASE}/profiles', {
+      const response = await fetch(`${API_BASE}/profiles`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -314,24 +320,25 @@ export default function ClimbingBoardApp() {
           if (userData.uiSettings) {
             applyUiSettings(userData.uiSettings);
           }
-          if (
-            _event === 'SIGNED_IN' &&
-            !hasActiveLoginSessionRef.current &&
-            !hasShownLoginPopupThisSession()
-          ) {
-            setAuthStatusPopup('login');
-            markLoginPopupShownThisSession();
-          }
+
+          // Only do full hydration on a fresh SIGNED_IN, not on INITIAL_SESSION
+          // or TOKEN_REFRESHED (which fire automatically and would duplicate work
+          // already done in initAuth above).
           if (_event === 'SIGNED_IN' && !hasActiveLoginSessionRef.current) {
+            if (!hasShownLoginPopupThisSession()) {
+              setAuthStatusPopup('login');
+              markLoginPopupShownThisSession();
+            }
             if (!hasCountedCurrentSession()) {
               logLoginSession(supaUser.id);
               markCurrentSessionCounted();
             }
+            fetchDashboardStats(supaUser.id);
+            syncProfileToDatabase(supaUser.id, userData);
+            hydrateUserEngagement(userData);
+            hasActiveLoginSessionRef.current = true;
           }
-          fetchDashboardStats(supaUser.id);
-          hasActiveLoginSessionRef.current = true;
-          syncProfileToDatabase(supaUser.id, userData);
-          hydrateUserEngagement(userData);
+          // For TOKEN_REFRESHED / INITIAL_SESSION: user state already set above, nothing else needed
         } else if (_event === 'SIGNED_OUT') {
           setUser(null);
           setSavedProblems([]);
@@ -345,6 +352,7 @@ export default function ClimbingBoardApp() {
             community_ascensions: null,
           });
           hasActiveLoginSessionRef.current = false;
+          clearTimeout(hydrateRetryTimerRef.current);
           clearLoginPopupSessionMarker();
           clearCurrentSessionCounted();
           setActiveTab('home');
@@ -601,7 +609,7 @@ export default function ClimbingBoardApp() {
 
     try {
       // Post to backend API
-      const res = await fetch('${API_BASE}/routes', {
+      const res = await fetch(`${API_BASE}/routes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -637,7 +645,11 @@ export default function ClimbingBoardApp() {
         authorUsername: user.username || user.email || 'climber',
       };
       setPublicProblems((prev) => [newProblem, ...prev]);
-      fetchDashboardStats(user.id);
+      setDashboardStats((prev) => ({
+        ...prev,
+        problems_created: (prev.problems_created ?? 0) + 1,
+        community_ascensions: prev.community_ascensions ?? 0,
+      }));
     } catch (err) {
       console.error('Error posting route:', err);
       alert('Failed to post route. Is the backend running?');
@@ -648,7 +660,7 @@ export default function ClimbingBoardApp() {
     if (!user) return;
 
     try {
-      const res = await fetch('${API_BASE}/routes', {
+      const res = await fetch(`${API_BASE}/routes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -669,9 +681,11 @@ export default function ClimbingBoardApp() {
         return;
       }
 
-      const savedRoute = await res.json();
-      console.log('Private route saved successfully:', savedRoute);
-      fetchDashboardStats(user.id);
+      console.log('Private route saved successfully:', await res.json());
+      setDashboardStats((prev) => ({
+        ...prev,
+        problems_created: (prev.problems_created ?? 0) + 1,
+      }));
     } catch (err) {
       console.error('Error saving private route:', err);
       alert('Failed to save route. Is the backend running?');
@@ -694,55 +708,44 @@ export default function ClimbingBoardApp() {
 
       if (existing) {
         const res = await fetch(endpoint, { method: 'DELETE' });
-        if (!res.ok) {
-          throw new Error(`Failed unsave: ${res.status}`);
-        }
+        if (!res.ok) throw new Error(`Failed unsave: ${res.status}`);
         setSavedProblems((prev) =>
           prev.filter((p) => !(p.userEmail === user.email && String(p.id) === routeId))
         );
-        fetchDashboardStats(user.id);
+        setDashboardStats((prev) => ({
+          ...prev,
+          saved_climbs: Math.max(0, (prev.saved_climbs ?? 1) - 1),
+        }));
         return { saved: false };
       }
 
       const saveRes = await fetch(endpoint, { method: 'PUT' });
-      if (!saveRes.ok) {
-        throw new Error(`Failed save: ${saveRes.status}`);
-      }
+      if (!saveRes.ok) throw new Error(`Failed save: ${saveRes.status}`);
 
-      let routeData = publicProblems.find((p) => String(p.id) === routeId) || null;
-      try {
-        const routeRes = await fetch(`${API_BASE}/routes/${encodeURIComponent(routeId)}`);
-        if (routeRes.ok) {
-          routeData = await routeRes.json();
-        }
-      } catch (e) {
-        // fallback to local data when route details fetch fails
-      }
-
-      if (!routeData) {
-        throw new Error('Route data unavailable after save');
-      }
+      // Use local data — no extra fetch needed
+      const routeData = publicProblems.find((p) => String(p.id) === routeId);
 
       const newProblem = {
-        id: routeData.id,
-        name: routeData.name,
-        grade: routeData.grade || routeData.difficulty?.toUpperCase() || 'V0',
-        sends: routeData.sends ?? routeData.send_count ?? 0,
-        holds: routeData.holds || [],
-        angle: routeData.angle,
-        description: routeData.description || '',
+        id: routeId,
+        name: routeData?.name || 'Route',
+        grade: routeData?.grade || routeData?.difficulty?.toUpperCase() || 'V0',
+        sends: routeData?.sends ?? routeData?.send_count ?? 0,
+        holds: routeData?.holds || [],
+        angle: routeData?.angle,
+        description: routeData?.description || '',
         savedDate: new Date().toISOString(),
         userEmail: user.email,
-        authorName: routeData.authorName || routeData.author_name || 'Anonymous',
+        authorName: routeData?.authorName || routeData?.author_name || 'Anonymous',
         authorUsername:
-          routeData.authorUsername ||
-          routeData.author_username ||
-          routeData.setter_username ||
-          routeData.username ||
+          routeData?.authorUsername ||
+          routeData?.author_username ||
           'climber',
       };
       setSavedProblems((prev) => [newProblem, ...prev]);
-      fetchDashboardStats(user.id);
+      setDashboardStats((prev) => ({
+        ...prev,
+        saved_climbs: (prev.saved_climbs ?? 0) + 1,
+      }));
       return { saved: true };
     } catch (error) {
       console.error('Error toggling save:', error);
@@ -790,7 +793,14 @@ export default function ClimbingBoardApp() {
             prev.map((p) => (String(p.id) === routeId ? { ...p, sends: sendCount } : p))
           );
         }
-        fetchDashboardStats(user.id);
+        // Update stats locally — no re-fetch needed
+        setDashboardStats((prev) => ({
+          ...prev,
+          successful_ascensions: Math.max(
+            0,
+            (prev.successful_ascensions ?? 0) + (alreadyLiked ? -1 : 1)
+          ),
+        }));
 
         return { liked: !alreadyLiked, sendCount };
       } catch (error) {

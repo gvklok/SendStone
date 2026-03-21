@@ -28,11 +28,28 @@ app.include_router(profiles.router)
 app.include_router(ml.router)
 
 
+async def _warmup_supabase():
+    """Fire a lightweight Supabase query in the background to pre-warm the connection."""
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+        from app.database import get_supabase_admin
+        await loop.run_in_executor(
+            None,
+            lambda: get_supabase_admin().table("routes").select("id").limit(1).execute()
+        )
+        print("✓ Supabase connection warmed up")
+    except Exception as e:
+        print(f"⚠️  Supabase warmup failed (will retry on first request): {e}")
+
+
 @app.on_event("startup")
 async def startup_event():
     """Initialize services on startup."""
+    import asyncio
     print("🚀 Starting SendStone API...")
     ml_predictor.initialize()
+    asyncio.create_task(_warmup_supabase())
 
 
 @app.get("/")
