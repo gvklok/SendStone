@@ -115,7 +115,7 @@ async def create_or_update_profile(profile: ProfileCreateUpdate):
         "name": profile.name,
         "username": profile.username,
         "photo_url": profile.photo_url,
-        "climber_level": profile.climber_level or "beginner",
+        "climber_level": profile.climber_level if profile.climber_level in ("beginner", "intermediate", "advanced", "expert") else "beginner",
     }
     
     try:

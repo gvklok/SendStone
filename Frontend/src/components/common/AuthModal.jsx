@@ -274,7 +274,7 @@ const AuthModal = ({ open, onClose, onAuthenticated, targetTab, externalError })
                   onChange={(e) => setClimbingLevel(e.target.value)}
                   className="w-full border-2 border-gray-900 px-3 py-3 font-bold text-gray-900 focus:outline-none focus:border-blue-500 bg-white"
                 >
-                  {['beginner', 'intermediate', 'expert', 'master'].map((lvl) => (
+                  {['beginner', 'intermediate', 'advanced', 'expert'].map((lvl) => (
                     <option key={lvl} value={lvl}>
                       {lvl.charAt(0).toUpperCase() + lvl.slice(1)}
                     </option>
