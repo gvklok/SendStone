@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../../supabaseClient';
 
+const API_BASE = process.env.REACT_APP_API_URL;
+
 const tabLabels = {
   create: 'Create',
   profile: 'Profile',
@@ -136,7 +138,7 @@ const AuthModal = ({ open, onClose, onAuthenticated, targetTab, externalError })
   // Sync user profile to profiles table via backend API
   const syncProfileToDatabase = async (userId, userData) => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/profiles', {
+      const response = await fetch(`${API_BASE}/profiles`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -272,7 +274,7 @@ const AuthModal = ({ open, onClose, onAuthenticated, targetTab, externalError })
                   onChange={(e) => setClimbingLevel(e.target.value)}
                   className="w-full border-2 border-gray-900 px-3 py-3 font-bold text-gray-900 focus:outline-none focus:border-blue-500 bg-white"
                 >
-                  {['beginner', 'intermediate', 'expert', 'master'].map((lvl) => (
+                  {['beginner', 'intermediate', 'advanced', 'expert'].map((lvl) => (
                     <option key={lvl} value={lvl}>
                       {lvl.charAt(0).toUpperCase() + lvl.slice(1)}
                     </option>

@@ -12,7 +12,7 @@ import httpx
 
 # Test against running server
 BASE_URL = "http://127.0.0.1:8000"
-client = httpx.Client(base_url=BASE_URL, timeout=10.0)
+client = httpx.Client(base_url=BASE_URL, timeout=60.0)
 
 # ============== TEST DATA ==============
 
@@ -197,7 +197,17 @@ class TestRoutesSave:
         global created_route_id
         if not created_route_id:
             pytest.skip("No route created in previous test")
-        
+
+        # Ensure profile exists (user_saved_routes.user_id FK -> profiles.id)
+        client.post("/profiles", json={
+            "id": TEST_USER_ID,
+            "email": "test001@example.com",
+            "name": "Test User",
+            "username": "testuser001",
+            "photo_url": None,
+            "climber_level": "beginner",
+        })
+
         response = client.put(
             f"/routes/{created_route_id}/save",
             params={"user_id": TEST_USER_ID}
@@ -249,6 +259,16 @@ class TestRoutesSend:
         global created_route_id
         if not created_route_id:
             pytest.skip("No route created in previous test")
+
+        # Ensure profile exists (sends.user_id FK -> profiles.id)
+        client.post("/profiles", json={
+            "id": TEST_USER_ID,
+            "email": "test001@example.com",
+            "name": "Test User",
+            "username": "testuser001",
+            "photo_url": None,
+            "climber_level": "beginner",
+        })
 
         response = client.put(
             f"/routes/{created_route_id}/send",

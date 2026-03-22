@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import InteractiveBoard from '../common/InteractiveBoard';
 
+const API_BASE = process.env.REACT_APP_API_URL;
+
 const CreatePage = ({ onPostProblem, onSaveProblem, user, remixData, onRemixConsumed }) => {
   const [name, setName] = useState(() => remixData?.name || '');
   const [grade, setGrade] = useState(() => remixData?.grade || 'V0');
@@ -34,6 +36,7 @@ const CreatePage = ({ onPostProblem, onSaveProblem, user, remixData, onRemixCons
 
   // Light up the board with current holds
   const handleLightBoard = async () => {
+    if (isLightingBoard) return;
     setError('');
     setMessage('');
     
@@ -56,7 +59,7 @@ const CreatePage = ({ onPostProblem, onSaveProblem, user, remixData, onRemixCons
 
     setIsLightingBoard(true);
     try {
-      const response = await fetch('http://localhost:8000/hardware/led/preview', {
+      const response = await fetch(`${API_BASE}/hardware/led/preview`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ holds }),
@@ -77,6 +80,7 @@ const CreatePage = ({ onPostProblem, onSaveProblem, user, remixData, onRemixCons
 
   // Predict grade using AI
   const handlePredictGrade = async () => {
+    if (isPredicting) return;
     setError('');
     setMessage('');
     
@@ -99,7 +103,7 @@ const CreatePage = ({ onPostProblem, onSaveProblem, user, remixData, onRemixCons
 
     setIsPredicting(true);
     try {
-      const response = await fetch('http://localhost:8000/ml/predict', {
+      const response = await fetch(`${API_BASE}/ml/predict`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ holds, angle }),

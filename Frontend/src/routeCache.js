@@ -6,7 +6,7 @@
  * this cache on mount so the first render is instant.
  */
 
-const API_BASE = 'http://127.0.0.1:8000';
+const API_BASE = process.env.REACT_APP_API_URL;
 const PREFETCH_LIMIT = 12;
 
 let _cache = null;   // { items, total }
@@ -44,6 +44,14 @@ startPrefetch();
  */
 export function getPrefetchedRoutes() {
   return _cache;
+}
+
+/**
+ * Returns the in-flight promise (if prefetch hasn't resolved yet),
+ * so callers can await it instead of firing a duplicate fetch.
+ */
+export function getPrefetchPromise() {
+  return _promise;
 }
 
 /**

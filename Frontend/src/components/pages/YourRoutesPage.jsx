@@ -3,7 +3,7 @@ import { Search, RefreshCw, ChevronDown } from 'lucide-react';
 import ProblemGridCard from '../common/ProblemGridCard';
 import FullscreenPost from './partials/FullscreenPost';
 
-const API_BASE = 'http://127.0.0.1:8000';
+const API_BASE = process.env.REACT_APP_API_URL;
 const PAGE_SIZE = 12;
 
 const YourRoutesPage = ({ user, onSave, onSend, savedIds = new Set(), likedIds = new Set(), onOpenPost }) => {

@@ -85,20 +85,48 @@ const InteractiveBoard = ({ onHoldsChange, initialHolds }) => {
     }
   }, [selectedRoute, onHoldsChange]);
 
-  // Click handler — cycle: none → blue → green → yellow → red → remove
+  // Click handler — cycle: none → green → blue → yellow → red → remove
+  // Green (start) and red (finish) are capped at 2 each; skipped if at max
   const onHoldClick = useCallback((holdData) => {
     setSelectedRoute(prev => {
+      const greenCount = prev.filter(r => r.color === 'green').length;
+
       const idx = prev.findIndex(r => r.x === holdData.x && r.y === holdData.y);
+
+      // New hold — start at green if room, otherwise blue
       if (idx === -1) {
-        return [...prev, { x: holdData.x, y: holdData.y, color: 'blue' }];
+        const startColor = greenCount < 2 ? 'green' : 'blue';
+        return [...prev, { x: holdData.x, y: holdData.y, color: startColor }];
       }
+
       const cur = prev[idx].color;
-      const ci = COLOR_CYCLE.indexOf(cur);
+      const ci  = COLOR_CYCLE.indexOf(cur);
+
+      // Last color in cycle → remove the hold
       if (ci === COLOR_CYCLE.length - 1) {
         return prev.filter((_, i) => i !== idx);
       }
+
+      // Find the next valid color, skipping capped ones
+      // (don't count current hold when checking limits)
+      const othersGreen = prev.filter((r, i) => i !== idx && r.color === 'green').length;
+      const othersRed   = prev.filter((r, i) => i !== idx && r.color === 'red').length;
+
+      let nextCi = ci + 1;
+      while (nextCi < COLOR_CYCLE.length) {
+        const candidate = COLOR_CYCLE[nextCi];
+        if (candidate === 'green' && othersGreen >= 2) { nextCi++; continue; }
+        if (candidate === 'red'   && othersRed   >= 2) { nextCi++; continue; }
+        break;
+      }
+
+      // If we ran off the end, remove the hold
+      if (nextCi >= COLOR_CYCLE.length) {
+        return prev.filter((_, i) => i !== idx);
+      }
+
       const next = [...prev];
-      next[idx] = { ...next[idx], color: COLOR_CYCLE[ci + 1] };
+      next[idx] = { ...next[idx], color: COLOR_CYCLE[nextCi] };
       return next;
     });
   }, []);

@@ -104,11 +104,26 @@ async def list_routes(
     # Execute
     response = query.execute()
     
-    # Fetch holds for each route
+    # Fetch all holds for this page in one query, then group by route_id
+    route_ids = [r["id"] for r in response.data if r.get("id")]
+    holds_by_route = {}
+    if route_ids:
+        holds_response = (
+            supabase.table("route_holds")
+            .select("route_id, x, y, color")
+            .in_("route_id", route_ids)
+            .order("position")
+            .execute()
+        )
+        for hold in holds_response.data or []:
+            rid = hold["route_id"]
+            holds_by_route.setdefault(rid, []).append(
+                {"x": hold["x"], "y": hold["y"], "color": hold["color"]}
+            )
+
     routes_with_holds = []
     for route in response.data:
-        holds_response = supabase.table("route_holds").select("x, y, color").eq("route_id", route["id"]).order("position").execute()
-        route["holds"] = holds_response.data or []
+        route["holds"] = holds_by_route.get(route["id"], [])
         routes_with_holds.append(route)
 
     routes_with_holds = _attach_author_usernames(supabase, routes_with_holds)
@@ -151,6 +166,20 @@ async def get_saved_routes(user_id: str = Query(..., description="User ID")):
     )
     routes = routes_res.data or []
 
+    # Batch-fetch all holds in one query instead of one per route
+    holds_res = (
+        supabase.table("route_holds")
+        .select("route_id, x, y, color")
+        .in_("route_id", route_ids)
+        .order("position")
+        .execute()
+    )
+    holds_by_route: dict[int, list] = {}
+    for h in (holds_res.data or []):
+        holds_by_route.setdefault(h["route_id"], []).append(
+            {"x": h["x"], "y": h["y"], "color": h["color"]}
+        )
+
     routes_by_id = {r["id"]: r for r in routes if r.get("id")}
     enriched = []
     for row in saved_rows:
@@ -158,14 +187,7 @@ async def get_saved_routes(user_id: str = Query(..., description="User ID")):
         route = routes_by_id.get(route_id)
         if not route:
             continue
-        holds_res = (
-            supabase.table("route_holds")
-            .select("x, y, color")
-            .eq("route_id", route_id)
-            .order("position")
-            .execute()
-        )
-        route["holds"] = holds_res.data or []
+        route["holds"] = holds_by_route.get(route_id, [])
         route["saved_at"] = row.get("saved_at")
         enriched.append(route)
 
@@ -329,15 +351,15 @@ async def save_route(route_id: str, user_id: str = Query(..., description="User 
     """
     supabase = get_supabase_admin()
     
-    # Check if route exists - handle potential None/errors
+    # Check if route exists
     try:
         route = supabase.table("routes").select("id").eq("id", route_id).limit(1).execute()
-    except Exception:
-        raise HTTPException(status_code=404, detail="Route not found")
-    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+
     if route is None or not route.data:
         raise HTTPException(status_code=404, detail="Route not found")
-    
+
     # Check if already saved
     existing = supabase.table("user_saved_routes").select("*").eq("user_id", user_id).eq("route_id", route_id).execute()
     
@@ -387,8 +409,8 @@ async def send_route(route_id: str, user_id: str = Query(..., description="User 
     # Check if route exists and get current send_count
     try:
         route = supabase.table("routes").select("id, send_count").eq("id", route_id).limit(1).execute()
-    except Exception:
-        raise HTTPException(status_code=404, detail="Route not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
 
     if route is None or not route.data:
         raise HTTPException(status_code=404, detail="Route not found")
