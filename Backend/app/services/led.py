@@ -1,182 +1,233 @@
-"""LED strip control service.
+"""LED strip control service (neopixel / rpi_ws281x).
 
-This is a placeholder module. Replace the implementation with your
-working LED control script once you're ready to test on the Pi.
+Hardware layout
+---------------
+50 NeoPixels snaked across the climbing board.
+The strip starts at the bottom-left corner of the board and snakes
+upward row by row:
 
-The API endpoints call these functions - you just need to fill in
-the actual LED control logic.
+  Row 0 (y ≈ 0):  LEDs  0-4   →  left  to right
+  Row 1 (y ≈ 1.4):LEDs  5-9   ←  right to left
+  Row 2 (y ≈ 2.8):LEDs 10-14  →  left  to right
+  ...  (alternating)
+
+LEDS_PER_ROW = 5 gives 10 rows covering the full board height.
+
+Hold coordinates on the board range from
+  x: 0 – 10  (columns)
+  y: 0 – 14  (rows, y=0 is bottom)
+
+Each hold is mapped to the nearest LED position; multiple holds that
+map to the same LED are blended (brightest / highest-priority color wins).
+
+Fallback
+--------
+If `board` or `neopixel` cannot be imported (i.e. not running on a Pi)
+the module still works — is_available() returns False and every function
+is a safe no-op so the API still returns 200 everywhere.
 """
+
 from typing import List, Dict, Any, Optional
 
-# =============================================================================
-# CONFIGURATION - Update these after wiring
-# =============================================================================
+# ─────────────────────────────────────────────────────────────
+#  Hardware availability — graceful import
+# ─────────────────────────────────────────────────────────────
+_HW_AVAILABLE = False
+_pixels = None
 
-# Color name to RGB mapping
+try:
+    import board
+    import neopixel as _neopixel
+    _HW_AVAILABLE = True
+except (ImportError, NotImplementedError):
+    # Not on a Pi, or GPIO not accessible
+    pass
+
+# ─────────────────────────────────────────────────────────────
+#  Configuration
+# ─────────────────────────────────────────────────────────────
+
+LED_COUNT    = 50
+LED_PIN      = None          # set below after import check
+BRIGHTNESS   = 0.3
+LEDS_PER_ROW = 5             # LEDs across each physical row of the snake
+
+# Board coordinate ranges (handholds only)
+BOARD_X_MAX = 10.0
+BOARD_Y_MAX = 14.0
+
+# Hold color → RGB (library converts to GRB wire order via pixel_order=GRB)
 COLORS: Dict[str, tuple] = {
-    "green":  (34, 197, 94),    # Start holds
-    "blue":   (5, 103, 232),    # Hand holds
-    "yellow": (234, 179, 8),    # Foot holds
-    "red":    (239, 68, 68),    # Finish holds
+    "green":  (0,   200, 60),    # Start holds  — green
+    "blue":   (5,   103, 232),   # Hand holds   — blue
+    "yellow": (234, 179, 8),     # Foot holds   — yellow
+    "red":    (239, 68,  68),    # Finish holds — red
 }
 
-# Coordinate (x, y) to LED index mapping
-# Fill this in after you wire the board and know which LED is where
-# Example: (0, 0) -> LED index 0, (1, 0) -> LED index 1, etc.
-COORD_TO_LED: Dict[tuple, int] = {
-    # (x, y): led_index
-    # Example entries:
-    # (0, 0): 0,
-    # (1, 0): 1,
-    # (0, 1): 2,
-    # ...
-}
+# Priority order when two holds share one LED (higher index = higher priority)
+COLOR_PRIORITY = {"blue": 0, "yellow": 1, "green": 2, "red": 3}
 
-# LED strip configuration
-LED_COUNT = 25  # Update to match your setup
+# ─────────────────────────────────────────────────────────────
+#  Snake LED layout
+# ─────────────────────────────────────────────────────────────
+
+def _build_led_positions() -> List[tuple]:
+    """Return a list of (board_x, board_y) for each LED index 0-49.
+
+    The snake starts at the bottom-left and alternates direction each row:
+      even rows → left to right
+      odd  rows → right to left
+    """
+    num_rows = LED_COUNT // LEDS_PER_ROW          # 10 rows
+    y_step   = BOARD_Y_MAX / (num_rows - 1)       # spacing between LED rows
+    x_step   = BOARD_X_MAX / (LEDS_PER_ROW - 1)  # spacing between LEDs in a row
+
+    positions = []
+    for row in range(num_rows):
+        board_y = row * y_step
+        xs = [col * x_step for col in range(LEDS_PER_ROW)]
+        if row % 2 == 1:          # odd rows run right → left
+            xs = list(reversed(xs))
+        for bx in xs:
+            positions.append((bx, board_y))
+
+    return positions
 
 
-# =============================================================================
-# PLACEHOLDER: Your LED control code goes here
-# =============================================================================
+_LED_POSITIONS: List[tuple] = _build_led_positions()
 
-# This will be set to your actual LED strip object
-_strip = None
 
+def _nearest_led(hold_x: float, hold_y: float) -> int:
+    """Return the LED index whose physical position is closest to (hold_x, hold_y)."""
+    best_idx  = 0
+    best_dist = float("inf")
+    for i, (lx, ly) in enumerate(_LED_POSITIONS):
+        dist = (lx - hold_x) ** 2 + (ly - hold_y) ** 2
+        if dist < best_dist:
+            best_dist = dist
+            best_idx  = i
+    return best_idx
+
+
+# ─────────────────────────────────────────────────────────────
+#  Initialisation
+# ─────────────────────────────────────────────────────────────
 
 def _init_strip():
-    """Initialize the LED strip.
+    """Initialise the NeoPixel strip.  No-op when not on a Pi."""
+    global _pixels, LED_PIN
 
-    TODO: Replace with your working LED initialization code.
-    Example with rpi_ws281x:
-        from rpi_ws281x import PixelStrip, Color
-        strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA,
-                           LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
-        strip.begin()
-        return strip
-    """
-    global _strip
-    # Placeholder - replace with your code
-    _strip = None
-    return False
+    if not _HW_AVAILABLE:
+        return False
 
-
-def is_available() -> bool:
-    """Check if LED control is available (running on Pi with GPIO access).
-
-    Returns:
-        True if LEDs can be controlled, False otherwise.
-    """
-    # TODO: Replace with actual check
-    # Example: try to import rpi_ws281x and check GPIO access
     try:
-        # Placeholder check - replace with your actual availability check
-        # import rpi_ws281x
-        return False  # Return False until you add your code
-    except ImportError:
+        LED_PIN = board.D18
+        _pixels = _neopixel.NeoPixel(
+            LED_PIN, LED_COUNT,
+            brightness=BRIGHTNESS,
+            auto_write=False,
+            pixel_order=_neopixel.GRB,
+        )
+        return True
+    except Exception as e:
+        print(f"[LED] init failed: {e}")
+        _pixels = None
         return False
 
 
-def get_led_index(x: float, y: float) -> Optional[int]:
-    """Convert board coordinates to LED index.
-
-    Args:
-        x: X coordinate (0-10, with 0.5 increments for screw-ons)
-        y: Y coordinate (0-14, with 0.5 increments for screw-ons)
-
-    Returns:
-        LED index, or None if coordinate not mapped.
-    """
-    return COORD_TO_LED.get((x, y))
+# Run on import so the strip is ready when the first request arrives
+_init_strip()
 
 
-def get_rgb(color: str) -> tuple:
-    """Convert color name to RGB tuple.
+# ─────────────────────────────────────────────────────────────
+#  Public API
+# ─────────────────────────────────────────────────────────────
 
-    Args:
-        color: Color name (green, blue, yellow, red)
-
-    Returns:
-        RGB tuple (r, g, b), defaults to white if color unknown.
-    """
-    return COLORS.get(color.lower(), (255, 255, 255))
+def is_available() -> bool:
+    return _HW_AVAILABLE and _pixels is not None
 
 
 def clear() -> bool:
-    """Turn off all LEDs.
-
-    TODO: Replace with your working LED clear code.
-
-    Returns:
-        True if successful, False otherwise.
-    """
+    """Turn all LEDs off."""
     if not is_available():
         return False
-
-    # TODO: Replace with your code
-    # Example:
-    # for i in range(LED_COUNT):
-    #     _strip.setPixelColor(i, Color(0, 0, 0))
-    # _strip.show()
-
-    return True
+    try:
+        _pixels.fill((0, 0, 0))
+        _pixels.show()
+        return True
+    except Exception as e:
+        print(f"[LED] clear failed: {e}")
+        return False
 
 
 def display_holds(holds: List[Dict[str, Any]]) -> int:
-    """Display holds on the LED strip.
+    """Light the LEDs that best represent the given holds.
+
+    Multiple holds can map to the same LED — the highest-priority color wins
+    (green/red > yellow > blue).
 
     Args:
-        holds: List of hold objects with x, y, color fields.
-               Example: [{"x": 5.0, "y": 7.0, "color": "blue"}]
+        holds: list of dicts with keys x (float), y (float), color (str).
 
     Returns:
-        Number of LEDs that were lit up.
-
-    TODO: Replace with your working LED display code.
+        Number of unique LEDs lit (0 when hardware not available).
     """
-    if not is_available():
-        return 0
-
-    lit_count = 0
-
-    # Clear first
-    clear()
+    # Build a map: led_index → best color for that LED
+    led_colors: Dict[int, str] = {}
 
     for hold in holds:
-        x = hold.get("x")
-        y = hold.get("y")
+        x     = hold.get("x")
+        y     = hold.get("y")
         color = hold.get("color", "blue")
 
-        led_index = get_led_index(x, y)
-        if led_index is not None:
-            r, g, b = get_rgb(color)
-            # TODO: Replace with your code
-            # _strip.setPixelColor(led_index, Color(r, g, b))
-            lit_count += 1
+        if x is None or y is None:
+            continue
 
-    # TODO: Replace with your code
-    # _strip.show()
+        led_idx  = _nearest_led(float(x), float(y))
+        priority = COLOR_PRIORITY.get(color, 0)
 
-    return lit_count
+        existing = led_colors.get(led_idx)
+        if existing is None or COLOR_PRIORITY.get(existing, 0) < priority:
+            led_colors[led_idx] = color
+
+    if not is_available():
+        # Simulate — log what would light up
+        print(f"[LED] simulated: {len(led_colors)} LEDs → {led_colors}")
+        return len(led_colors)
+
+    try:
+        _pixels.fill((0, 0, 0))          # clear first
+        for led_idx, color in led_colors.items():
+            _pixels[led_idx] = COLORS.get(color, (255, 255, 255))
+        _pixels.show()
+        return len(led_colors)
+    except Exception as e:
+        print(f"[LED] display_holds failed: {e}")
+        return 0
 
 
 def test_pattern() -> bool:
-    """Display a test pattern on all LEDs.
-
-    Useful for verifying the LED strip is working.
-
-    TODO: Replace with your working test pattern code.
-
-    Returns:
-        True if successful, False otherwise.
-    """
+    """Rainbow chase across all 50 LEDs — useful for wiring verification."""
     if not is_available():
+        print("[LED] test_pattern: hardware not available")
         return False
 
-    # TODO: Replace with your code
-    # Example: Light all LEDs in sequence or rainbow pattern
-    # for i in range(LED_COUNT):
-    #     _strip.setPixelColor(i, Color(255, 0, 0))
-    # _strip.show()
-
-    return True
+    import time
+    chase_colors = [
+        COLORS["green"],
+        COLORS["blue"],
+        COLORS["yellow"],
+        COLORS["red"],
+    ]
+    try:
+        for i in range(LED_COUNT):
+            _pixels[i] = chase_colors[i % len(chase_colors)]
+            _pixels.show()
+            time.sleep(0.05)
+        time.sleep(1)
+        _pixels.fill((0, 0, 0))
+        _pixels.show()
+        return True
+    except Exception as e:
+        print(f"[LED] test_pattern failed: {e}")
+        return False

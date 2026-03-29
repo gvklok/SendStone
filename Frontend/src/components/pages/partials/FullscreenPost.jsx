@@ -4,16 +4,51 @@ import BoardPreview from '../../common/BoardPreview';
 
 const API_BASE = process.env.REACT_APP_API_URL;
 
-const FullscreenPost = ({ post, onClose, onSave, onSend, onSendToBoard, onRemix, liked = false, saved = false }) => {
+const FullscreenPost = ({ post, onClose, onSave, onSend, onRemix, liked = false, saved = false }) => {
   const [predictedGrade, setPredictedGrade] = useState(null);
   const [isPredicting, setIsPredicting] = useState(false);
   const [predictionError, setPredictionError] = useState(null);
+  const [isLighting, setIsLighting] = useState(false);
+  const [ledStatus, setLedStatus] = useState(null); // 'lit' | 'unavailable' | 'error'
 
-  // Reset prediction when post changes
+  // Reset prediction and LED status when post changes
   useEffect(() => {
     setPredictedGrade(null);
     setPredictionError(null);
+    setLedStatus(null);
   }, [post?.id]);
+
+  const handleSendToBoard = async () => {
+    if (isLighting || !post?.id) return;
+    setIsLighting(true);
+
+    // Toggle: if already lit, turn off
+    if (ledStatus === 'lit') {
+      try {
+        await fetch(`${API_BASE}/hardware/led/off`, { method: 'POST' });
+      } catch {}
+      setLedStatus(null);
+      setIsLighting(false);
+      return;
+    }
+
+    setLedStatus(null);
+    try {
+      const res = await fetch(`${API_BASE}/hardware/led/routes/${encodeURIComponent(post.id)}`, {
+        method: 'POST',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setLedStatus(data.status?.includes('simulated') ? 'unavailable' : 'lit');
+      } else {
+        setLedStatus('error');
+      }
+    } catch {
+      setLedStatus('error');
+    } finally {
+      setIsLighting(false);
+    }
+  };
 
   const handlePredictGrade = async () => {
     if (isPredicting) return;
@@ -47,10 +82,17 @@ const FullscreenPost = ({ post, onClose, onSave, onSend, onSendToBoard, onRemix,
 
   if (!post) return null;
 
+  const handleClose = () => {
+    if (ledStatus === 'lit') {
+      fetch(`${API_BASE}/hardware/led/off`, { method: 'POST' }).catch(() => {});
+    }
+    onClose?.();
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
-      onClick={onClose}
+      onClick={handleClose}
     >
       {/* Outer card — let it size from content, cap at 90vh, scroll when needed */}
       <div
@@ -60,7 +102,7 @@ const FullscreenPost = ({ post, onClose, onSave, onSend, onSendToBoard, onRemix,
         {/* Top bar — sticky so it's always visible */}
         <div className="sticky top-0 z-10 bg-white/90 backdrop-blur flex items-center justify-between px-5 py-3 border-b border-gray-100">
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="p-2 rounded-full hover:bg-gray-100 transition-colors"
             aria-label="Close"
           >
@@ -78,10 +120,21 @@ const FullscreenPost = ({ post, onClose, onSave, onSend, onSendToBoard, onRemix,
             </button>
             {/* Send to Board (LED) */}
             <button
-              onClick={(e) => { e.stopPropagation(); onSendToBoard?.(); }}
-              className="p-2.5 rounded-full bg-gray-100 text-gray-700 hover:bg-amber-100 hover:text-amber-600 transition-colors"
+              onClick={(e) => { e.stopPropagation(); handleSendToBoard(); }}
+              disabled={isLighting}
+              className={`p-2.5 rounded-full transition-colors disabled:opacity-40 ${
+                ledStatus === 'lit'         ? 'bg-amber-400 text-white'
+                : ledStatus === 'unavailable' ? 'bg-gray-200 text-gray-400'
+                : ledStatus === 'error'       ? 'bg-red-100 text-red-500'
+                : 'bg-gray-100 text-gray-700 hover:bg-amber-100 hover:text-amber-600'
+              }`}
               aria-label="Send to board"
-              title="Light up on board"
+              title={
+                ledStatus === 'lit'          ? 'Board lit up!'
+                : ledStatus === 'unavailable' ? 'LEDs not connected'
+                : ledStatus === 'error'       ? 'Failed to reach board'
+                : 'Light up on board'
+              }
             >
               <Lightbulb size={20} strokeWidth={2.25} />
             </button>
