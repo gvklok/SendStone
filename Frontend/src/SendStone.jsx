@@ -53,7 +53,7 @@ export default function ClimbingBoardApp() {
   const hasActiveLoginSessionRef = useRef(false);
   const hydrateRetryTimerRef = useRef(null);
 
-  const restrictedTabs = ['create', 'profile', 'saved', 'yourRoutes'];
+  const restrictedTabs = ['profile', 'saved', 'yourRoutes'];
   const normalizeUiSettings = (settings) => {
     if (!settings || typeof settings !== 'object') return null;
     return {
@@ -377,12 +377,12 @@ export default function ClimbingBoardApp() {
       const storedPinned = localStorage.getItem(SIDEBAR_PINNED_KEY);
       const storedTextSize = localStorage.getItem(TEXT_SIZE_STORAGE_KEY);
       setTheme(storedTheme === 'dark' ? 'dark' : 'light');
-      setSidebarPinned(storedPinned === '1');
+      setSidebarPinned(storedPinned === null ? true : storedPinned === '1');
       setTextSize(storedTextSize === 'large' ? 'large' : 'small');
-      setSidebarOpen(storedPinned === '1');
+      setSidebarOpen(storedPinned === null ? true : storedPinned === '1');
     } catch {
       setTheme('light');
-      setSidebarPinned(false);
+      setSidebarPinned(true);
       setTextSize('small');
       setSidebarOpen(false);
     }
@@ -860,7 +860,7 @@ export default function ClimbingBoardApp() {
     : new Set();
 
   return (
-    <div className={`h-screen flex flex-col bg-neutral-100 ${sidebarPinned ? 'md:pr-[116px]' : ''}`}>
+    <div className="h-screen flex flex-col bg-neutral-100">
       {/* Desktop Navigation */}
       <Navigation 
         activeTab={activeTab} 
@@ -882,6 +882,7 @@ export default function ClimbingBoardApp() {
             setOpenPostId(id);
             setActiveTab('explore');
           }}
+          onNavigateToCreate={() => setActiveTab('create')}
         />
       )}
       {activeTab === 'create' && (
@@ -892,6 +893,7 @@ export default function ClimbingBoardApp() {
           onSaveProblem={handleSaveProblem}
           remixData={remixData}
           onRemixConsumed={() => setRemixData(null)}
+          onRequireAuth={() => setShowAuth(true)}
         />
       )}
       {activeTab === 'explore' && (

@@ -15,7 +15,9 @@ const HomePage = ({
   },
   recentPosts = [],
   onOpenRecent,
+  onNavigateToCreate,
 }) => {
+  const showLearnTheRopes = !user || dashboardStats.problems_created === 0;
 
   return (
     <div className="flex-1 overflow-y-auto pb-20 md:pb-0">
@@ -77,6 +79,22 @@ const HomePage = ({
       {/* About or Recent Problems */}
       {user ? (
         <div className="p-6 md:p-12 bg-neutral-100 max-w-7xl mx-auto">
+          {showLearnTheRopes && (
+            <div className="mb-8 md:mb-12 bg-white border-2 border-gray-900 p-6 md:p-8 text-center">
+              <h3 className="text-2xl md:text-4xl font-black mb-2 text-gray-900 uppercase tracking-wider">
+                Learn the Ropes
+              </h3>
+              <p className="text-base md:text-lg text-gray-600 font-semibold mb-5">
+                Create your first problem!
+              </p>
+              <button
+                onClick={onNavigateToCreate}
+                className="bg-black text-white font-black uppercase tracking-widest px-8 py-3 hover:bg-gray-800 transition-colors"
+              >
+                Go to Create
+              </button>
+            </div>
+          )}
           <h3 className="text-2xl md:text-4xl font-black mb-5 md:mb-8 text-gray-900 uppercase tracking-wider border-l-4 border-blue-500 pl-4">
             Recent Problems
           </h3>
@@ -104,6 +122,20 @@ const HomePage = ({
       ) : (
         <>
           <div className="p-6 md:p-12 bg-neutral-100 max-w-4xl mx-auto">
+            <div className="mb-8 md:mb-12 bg-white border-2 border-gray-900 p-6 md:p-8 text-center">
+              <h3 className="text-2xl md:text-4xl font-black mb-2 text-gray-900 uppercase tracking-wider">
+                Learn the Ropes
+              </h3>
+              <p className="text-base md:text-lg text-gray-600 font-semibold mb-5">
+                Create your first problem!
+              </p>
+              <button
+                onClick={onNavigateToCreate}
+                className="bg-black text-white font-black uppercase tracking-widest px-8 py-3 hover:bg-gray-800 transition-colors"
+              >
+                Go to Create
+              </button>
+            </div>
             <h3 className="text-2xl md:text-4xl font-black mb-4 md:mb-6 text-gray-900 uppercase tracking-wider border-l-4 border-blue-500 pl-4">
               About SendStone
             </h3>

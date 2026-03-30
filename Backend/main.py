@@ -2,7 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
-from app.routers import routes, hardware, profiles, ml
+from app.routers import routes, hardware, profiles, ml, report
 from app.services import ml_predictor
 
 # Create FastAPI app
@@ -26,6 +26,7 @@ app.include_router(routes.router)
 app.include_router(hardware.router)
 app.include_router(profiles.router)
 app.include_router(ml.router)
+app.include_router(report.router)
 
 
 async def _warmup_supabase():

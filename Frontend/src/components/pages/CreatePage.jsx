@@ -3,7 +3,7 @@ import InteractiveBoard from '../common/InteractiveBoard';
 
 const API_BASE = process.env.REACT_APP_API_URL;
 
-const CreatePage = ({ onPostProblem, onSaveProblem, user, remixData, onRemixConsumed }) => {
+const CreatePage = ({ onPostProblem, onSaveProblem, user, remixData, onRemixConsumed, onRequireAuth }) => {
   const [name, setName] = useState(() => remixData?.name || '');
   const [grade, setGrade] = useState(() => remixData?.grade || 'V0');
   const [description, setDescription] = useState(() => remixData?.description || '');
@@ -139,7 +139,7 @@ const CreatePage = ({ onPostProblem, onSaveProblem, user, remixData, onRemixCons
     setError('');
     setMessage('');
     if (!user) {
-      setError('Log in to save a problem.');
+      onRequireAuth?.();
       return;
     }
     const payload = buildPayload();
@@ -152,7 +152,7 @@ const CreatePage = ({ onPostProblem, onSaveProblem, user, remixData, onRemixCons
     setError('');
     setMessage('');
     if (!user) {
-      setError('Log in to post a problem.');
+      onRequireAuth?.();
       return;
     }
     // Validate hold requirements

@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
     debug: bool = False
+
+    # Gmail SMTP
+    gmail_user: str = ""
+    gmail_app_password: str = ""
     
     class Config:
         env_file = ".env"
