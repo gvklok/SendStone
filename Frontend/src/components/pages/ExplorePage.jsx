@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Search, RefreshCw, ChevronDown, List, Layers } from 'lucide-react';
+import { Search, RefreshCw, ChevronDown, List, Layers, Mountain, Bookmark, X } from 'lucide-react';
 import ProblemGridCard from '../common/ProblemGridCard';
 import FullscreenPost from './partials/FullscreenPost';
 import { getPrefetchedRoutes, getPrefetchPromise, clearPrefetchedRoutes } from '../../routeCache';
@@ -46,7 +46,9 @@ const PaginationNav = ({ page, totalPages, pageStart, pageEnd, total, loading, v
   </div>
 );
 
-const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(), openPostId, clearOpenPost, onOpenPost, onRemix }) => {
+const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(), openPostId, clearOpenPost, onOpenPost, onRemix, showHelp = false }) => {
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [helpDismissed, setHelpDismissed] = useState(false);
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -272,6 +274,23 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
     <div className="flex-1 overflow-y-auto pb-20 md:pb-0 p-6 md:p-12 bg-neutral-100">
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col gap-4 mb-4 md:mb-6">
+          {showHelp && !helpDismissed && (
+            <div className="flex items-center bg-blue-500 text-white text-sm font-black uppercase tracking-widest">
+              <button
+                onClick={() => setHelpOpen(true)}
+                className="flex-1 text-left px-5 py-3 hover:bg-blue-600 transition-colors"
+              >
+                First time? Click here for help!
+              </button>
+              <button
+                onClick={() => setHelpDismissed(true)}
+                className="px-4 py-3 hover:bg-blue-600 transition-colors"
+                aria-label="Dismiss"
+              >
+                <X size={18} strokeWidth={2.5} />
+              </button>
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <h2 className="text-3xl md:text-5xl font-black text-gray-900 uppercase tracking-wider">Explore</h2>
             <button
@@ -484,6 +503,40 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
           liked={likedIds.has(openPost.id)}
           saved={savedIds.has(openPost.id)}
         />
+      )}
+
+      {/* Help modal */}
+      {helpOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white border-2 border-gray-900 w-full max-w-sm p-6 flex flex-col gap-6">
+            <h3 className="text-lg font-black uppercase tracking-wider text-gray-900 text-center">How It Works</h3>
+
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0 bg-emerald-500 rounded-full p-3 text-white">
+                <Mountain size={28} strokeWidth={2.25} />
+              </div>
+              <p className="text-sm font-semibold text-gray-700 leading-relaxed">
+                <span className="font-black text-gray-900">Ascend</span> — tap the mountain icon when you have completed a route yourself to log your send.
+              </p>
+            </div>
+
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0 bg-blue-500 rounded-full p-3 text-white">
+                <Bookmark size={28} strokeWidth={2.25} />
+              </div>
+              <p className="text-sm font-semibold text-gray-700 leading-relaxed">
+                <span className="font-black text-gray-900">Save</span> — tap the bookmark icon to save a route so you can find it easily later.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setHelpOpen(false)}
+              className="w-full px-4 py-3 bg-blue-600 text-white font-black uppercase tracking-widest hover:bg-blue-700 transition-colors"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

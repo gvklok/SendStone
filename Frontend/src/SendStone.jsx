@@ -883,6 +883,7 @@ export default function ClimbingBoardApp() {
             setActiveTab('explore');
           }}
           onNavigateToCreate={() => setActiveTab('create')}
+          onNavigateToExplore={() => setActiveTab('explore')}
         />
       )}
       {activeTab === 'create' && (
@@ -907,6 +908,7 @@ export default function ClimbingBoardApp() {
           clearOpenPost={() => setOpenPostId(null)}
           onOpenPost={recordOpenPost}
           onRemix={handleRemix}
+          showHelp={!user || dashboardStats.problems_created === 0}
         />
       )}
       {activeTab === 'saved' && (

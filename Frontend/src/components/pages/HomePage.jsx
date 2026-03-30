@@ -16,6 +16,7 @@ const HomePage = ({
   recentPosts = [],
   onOpenRecent,
   onNavigateToCreate,
+  onNavigateToExplore,
 }) => {
   const showLearnTheRopes = !user || dashboardStats.problems_created === 0;
 
@@ -85,14 +86,22 @@ const HomePage = ({
                 Learn the Ropes
               </h3>
               <p className="text-base md:text-lg text-gray-600 font-semibold mb-5">
-                Create your first problem!
+                Create your first problem and check out existing ones!
               </p>
-              <button
-                onClick={onNavigateToCreate}
-                className="bg-black text-white font-black uppercase tracking-widest px-8 py-3 hover:bg-gray-800 transition-colors"
-              >
-                Go to Create
-              </button>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <button
+                  onClick={onNavigateToCreate}
+                  className="bg-black text-white font-black uppercase tracking-widest px-8 py-3 hover:bg-gray-800 transition-colors"
+                >
+                  Go to Create
+                </button>
+                <button
+                  onClick={onNavigateToExplore}
+                  className="bg-blue-500 text-white font-black uppercase tracking-widest px-8 py-3 hover:bg-blue-600 transition-colors"
+                >
+                  Go to Explore
+                </button>
+              </div>
             </div>
           )}
           <h3 className="text-2xl md:text-4xl font-black mb-5 md:mb-8 text-gray-900 uppercase tracking-wider border-l-4 border-blue-500 pl-4">
@@ -127,14 +136,22 @@ const HomePage = ({
                 Learn the Ropes
               </h3>
               <p className="text-base md:text-lg text-gray-600 font-semibold mb-5">
-                Create your first problem!
+                Create your first problem and check out existing ones!
               </p>
-              <button
-                onClick={onNavigateToCreate}
-                className="bg-black text-white font-black uppercase tracking-widest px-8 py-3 hover:bg-gray-800 transition-colors"
-              >
-                Go to Create
-              </button>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <button
+                  onClick={onNavigateToCreate}
+                  className="bg-black text-white font-black uppercase tracking-widest px-8 py-3 hover:bg-gray-800 transition-colors"
+                >
+                  Go to Create
+                </button>
+                <button
+                  onClick={onNavigateToExplore}
+                  className="bg-blue-500 text-white font-black uppercase tracking-widest px-8 py-3 hover:bg-blue-600 transition-colors"
+                >
+                  Go to Explore
+                </button>
+              </div>
             </div>
             <h3 className="text-2xl md:text-4xl font-black mb-4 md:mb-6 text-gray-900 uppercase tracking-wider border-l-4 border-blue-500 pl-4">
               About SendStone
