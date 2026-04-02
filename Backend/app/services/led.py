@@ -2,35 +2,26 @@
 
 Hardware layout
 ---------------
-50 NeoPixels snaked across the climbing board.
-The strip starts at the bottom-left corner of the board and snakes
-upward row by row:
+Kilter Board LED system:
+- 225 hold LEDs mapped to led_position (0–224)
+- Physical strip indices: 25–249 (offset = 25)
+- LEDs 0–24 are unused (pre-hold)
 
-  Row 0 (y ≈ 0):  LEDs  0-4   →  left  to right
-  Row 1 (y ≈ 1.4):LEDs  5-9   ←  right to left
-  Row 2 (y ≈ 2.8):LEDs 10-14  →  left  to right
-  ...  (alternating)
+Board layout:
+- x: 0 – 10 (columns, includes half-step screw-ons)
+- y: 0 – 14 (rows, bottom → top)
+- Bolt-ons at integer positions
+- Screw-ons at half-step positions (x+0.5, y+0.5)
 
-LEDS_PER_ROW = 5 gives 10 rows covering the full board height.
-
-Hold coordinates on the board range from
-  x: 0 – 10  (columns)
-  y: 0 – 14  (rows, y=0 is bottom)
-
-Each hold is mapped to the nearest LED position; multiple holds that
-map to the same LED are blended (brightest / highest-priority color wins).
-
-Fallback
---------
-If `board` or `neopixel` cannot be imported (i.e. not running on a Pi)
-the module still works — is_available() returns False and every function
-is a safe no-op so the API still returns 200 everywhere.
+Snake wiring:
+- Even columns go UP (y=0 → 14)
+- Odd columns go DOWN (y=14 → 0)
 """
 
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 # ─────────────────────────────────────────────────────────────
-#  Hardware availability — graceful import
+# Hardware availability
 # ─────────────────────────────────────────────────────────────
 _HW_AVAILABLE = False
 _pixels = None
@@ -40,81 +31,104 @@ try:
     import neopixel as _neopixel
     _HW_AVAILABLE = True
 except (ImportError, NotImplementedError):
-    # Not on a Pi, or GPIO not accessible
     pass
 
+
 # ─────────────────────────────────────────────────────────────
-#  Configuration
+# Configuration
 # ─────────────────────────────────────────────────────────────
 
-LED_COUNT    = 50
-LED_PIN      = None          # set below after import check
-BRIGHTNESS   = 0.3
-LEDS_PER_ROW = 5             # LEDs across each physical row of the snake
+LED_COUNT = 225
+LED_STRIP_TOTAL = 250
+LED_STRIP_OFFSET = 25
 
-# Board coordinate ranges (handholds only)
+LED_PIN = None
+BRIGHTNESS = 0.3
+
 BOARD_X_MAX = 10.0
 BOARD_Y_MAX = 14.0
 
-# Hold color → RGB (library converts to GRB wire order via pixel_order=GRB)
 COLORS: Dict[str, tuple] = {
-    "green":  (0,   200, 60),    # Start holds  — green
-    "blue":   (5,   103, 232),   # Hand holds   — blue
-    "yellow": (234, 179, 8),     # Foot holds   — yellow
-    "red":    (239, 68,  68),    # Finish holds — red
+    "green": (0, 255, 0),
+    "blue": (0, 0, 255),
+    "yellow": (255, 255, 0),
+    "red": (255, 0, 0),
 }
 
-# Priority order when two holds share one LED (higher index = higher priority)
 COLOR_PRIORITY = {"blue": 0, "yellow": 1, "green": 2, "red": 3}
 
+
 # ─────────────────────────────────────────────────────────────
-#  Snake LED layout
+# Kilter LED layout
 # ─────────────────────────────────────────────────────────────
 
 def _build_led_positions() -> List[tuple]:
-    """Return a list of (board_x, board_y) for each LED index 0-49.
-
-    The snake starts at the bottom-left and alternates direction each row:
-      even rows → left to right
-      odd  rows → right to left
+    """Return 225 (x, y) LED positions indexed 0–224.
+    Physical LED = index + 25.
     """
-    num_rows = LED_COUNT // LEDS_PER_ROW          # 10 rows
-    y_step   = BOARD_Y_MAX / (num_rows - 1)       # spacing between LED rows
-    x_step   = BOARD_X_MAX / (LEDS_PER_ROW - 1)  # spacing between LEDs in a row
+    positions: List[tuple] = []
 
-    positions = []
-    for row in range(num_rows):
-        board_y = row * y_step
-        xs = [col * x_step for col in range(LEDS_PER_ROW)]
-        if row % 2 == 1:          # odd rows run right → left
-            xs = list(reversed(xs))
-        for bx in xs:
-            positions.append((bx, board_y))
+    for col in range(10):
+        x_int = float(col)
+        x_half = col + 0.5
+
+        if col % 2 == 0:
+            # even column → bottom → top
+            for pair in range(6):
+                y0 = pair * 2
+                positions.append((x_int, float(y0)))
+                positions.append((x_int, float(y0 + 1)))
+                positions.append((x_half, y0 + 1.5))
+
+            positions.append((x_int, 12.0))
+            positions.append((x_int, 13.0))
+            positions.append((x_int, 14.0))
+
+        else:
+            # odd column → top → bottom
+            positions.append((x_int, 14.0))
+            positions.append((x_int, 13.0))
+            positions.append((x_int, 12.0))
+            positions.append((x_int, 11.0))
+
+            for pair in range(5):
+                y_high = 10 - pair * 2
+                positions.append((x_half, y_high + 0.5))
+                positions.append((x_int, float(y_high)))
+                positions.append((x_int, float(y_high - 1)))
+
+            positions.append((x_half, 0.5))
+            positions.append((x_int, 0.0))
+
+    # final column x=10
+    for y in range(15):
+        positions.append((10.0, float(y)))
 
     return positions
 
 
-_LED_POSITIONS: List[tuple] = _build_led_positions()
+_LED_POSITIONS = _build_led_positions()
 
 
-def _nearest_led(hold_x: float, hold_y: float) -> int:
-    """Return the LED index whose physical position is closest to (hold_x, hold_y)."""
-    best_idx  = 0
+def _nearest_led(x: float, y: float) -> int:
+    """Return nearest LED index (0–224). Physical LED = index + 25."""
+    best_idx = 0
     best_dist = float("inf")
+
     for i, (lx, ly) in enumerate(_LED_POSITIONS):
-        dist = (lx - hold_x) ** 2 + (ly - hold_y) ** 2
+        dist = (lx - x) ** 2 + (ly - y) ** 2
         if dist < best_dist:
             best_dist = dist
-            best_idx  = i
+            best_idx = i
+
     return best_idx
 
 
 # ─────────────────────────────────────────────────────────────
-#  Initialisation
+# Init
 # ─────────────────────────────────────────────────────────────
 
 def _init_strip():
-    """Initialise the NeoPixel strip.  No-op when not on a Pi."""
     global _pixels, LED_PIN
 
     if not _HW_AVAILABLE:
@@ -123,7 +137,8 @@ def _init_strip():
     try:
         LED_PIN = board.D18
         _pixels = _neopixel.NeoPixel(
-            LED_PIN, LED_COUNT,
+            LED_PIN,
+            LED_STRIP_TOTAL,  # ← 250 LEDs total
             brightness=BRIGHTNESS,
             auto_write=False,
             pixel_order=_neopixel.GRB,
@@ -131,16 +146,14 @@ def _init_strip():
         return True
     except Exception as e:
         print(f"[LED] init failed: {e}")
-        _pixels = None
         return False
 
 
-# Run on import so the strip is ready when the first request arrives
 _init_strip()
 
 
 # ─────────────────────────────────────────────────────────────
-#  Public API
+# API
 # ─────────────────────────────────────────────────────────────
 
 def is_available() -> bool:
@@ -148,86 +161,60 @@ def is_available() -> bool:
 
 
 def clear() -> bool:
-    """Turn all LEDs off."""
     if not is_available():
         return False
-    try:
-        _pixels.fill((0, 0, 0))
-        _pixels.show()
-        return True
-    except Exception as e:
-        print(f"[LED] clear failed: {e}")
-        return False
+
+    _pixels.fill((0, 0, 0))
+    _pixels.show()
+    return True
 
 
 def display_holds(holds: List[Dict[str, Any]]) -> int:
-    """Light the LEDs that best represent the given holds.
-
-    Multiple holds can map to the same LED — the highest-priority color wins
-    (green/red > yellow > blue).
-
-    Args:
-        holds: list of dicts with keys x (float), y (float), color (str).
-
-    Returns:
-        Number of unique LEDs lit (0 when hardware not available).
-    """
-    # Build a map: led_index → best color for that LED
     led_colors: Dict[int, str] = {}
 
     for hold in holds:
-        x     = hold.get("x")
-        y     = hold.get("y")
+        x = hold.get("x")
+        y = hold.get("y")
         color = hold.get("color", "blue")
 
         if x is None or y is None:
             continue
 
-        led_idx  = _nearest_led(float(x), float(y))
+        idx = _nearest_led(float(x), float(y))
         priority = COLOR_PRIORITY.get(color, 0)
 
-        existing = led_colors.get(led_idx)
+        existing = led_colors.get(idx)
         if existing is None or COLOR_PRIORITY.get(existing, 0) < priority:
-            led_colors[led_idx] = color
+            led_colors[idx] = color
 
     if not is_available():
-        # Simulate — log what would light up
-        print(f"[LED] simulated: {len(led_colors)} LEDs → {led_colors}")
+        print(f"[LED] simulated → {led_colors}")
         return len(led_colors)
 
-    try:
-        _pixels.fill((0, 0, 0))          # clear first
-        for led_idx, color in led_colors.items():
-            _pixels[led_idx] = COLORS.get(color, (255, 255, 255))
-        _pixels.show()
-        return len(led_colors)
-    except Exception as e:
-        print(f"[LED] display_holds failed: {e}")
-        return 0
+    _pixels.fill((0, 0, 0))
+
+    for idx, color in led_colors.items():
+        _pixels[idx + LED_STRIP_OFFSET] = COLORS.get(color, (255, 255, 255))
+
+    _pixels.show()
+    return len(led_colors)
 
 
 def test_pattern() -> bool:
-    """Rainbow chase across all 50 LEDs — useful for wiring verification."""
     if not is_available():
-        print("[LED] test_pattern: hardware not available")
         return False
 
     import time
-    chase_colors = [
-        COLORS["green"],
-        COLORS["blue"],
-        COLORS["yellow"],
-        COLORS["red"],
-    ]
-    try:
-        for i in range(LED_COUNT):
-            _pixels[i] = chase_colors[i % len(chase_colors)]
-            _pixels.show()
-            time.sleep(0.05)
-        time.sleep(1)
-        _pixels.fill((0, 0, 0))
+
+    colors = [COLORS["green"], COLORS["blue"], COLORS["yellow"], COLORS["red"]]
+
+    for i in range(LED_COUNT):
+        _pixels[i + LED_STRIP_OFFSET] = colors[i % len(colors)]
         _pixels.show()
-        return True
-    except Exception as e:
-        print(f"[LED] test_pattern failed: {e}")
-        return False
+        time.sleep(0.02)
+
+    time.sleep(1)
+    _pixels.fill((0, 0, 0))
+    _pixels.show()
+
+    return True
