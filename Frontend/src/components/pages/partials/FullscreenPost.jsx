@@ -8,7 +8,6 @@ const FullscreenPost = ({ post, onClose, onSave, onSend, onRemix, liked = false,
   const [predictedGrade, setPredictedGrade] = useState(null);
   const [isPredicting, setIsPredicting] = useState(false);
   const [predictionError, setPredictionError] = useState(null);
-  const [isLighting, setIsLighting] = useState(false);
   const [ledStatus, setLedStatus] = useState(null); // 'lit' | 'unavailable' | 'error'
 
   // Reset prediction and LED status when post changes
@@ -18,36 +17,26 @@ const FullscreenPost = ({ post, onClose, onSave, onSend, onRemix, liked = false,
     setLedStatus(null);
   }, [post?.id]);
 
-  const handleSendToBoard = async () => {
-    if (isLighting || !post?.id) return;
-    setIsLighting(true);
+  const handleSendToBoard = () => {
+    if (!post?.id) return;
 
-    // Toggle: if already lit, turn off
+    // Toggle off — update immediately, fire-and-forget the HTTP call
     if (ledStatus === 'lit') {
-      try {
-        await fetch(`${API_BASE}/hardware/led/off`, { method: 'POST' });
-      } catch {}
       setLedStatus(null);
-      setIsLighting(false);
+      fetch(`${API_BASE}/hardware/led/off`, { method: 'POST' }).catch(() => {});
       return;
     }
 
-    setLedStatus(null);
-    try {
-      const res = await fetch(`${API_BASE}/hardware/led/routes/${encodeURIComponent(post.id)}`, {
-        method: 'POST',
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setLedStatus(data.status?.includes('simulated') ? 'unavailable' : 'lit');
-      } else {
-        setLedStatus('error');
-      }
-    } catch {
-      setLedStatus('error');
-    } finally {
-      setIsLighting(false);
-    }
+    // Optimistic: show lit immediately so the button feels instant
+    setLedStatus('lit');
+    fetch(`${API_BASE}/hardware/led/routes/${encodeURIComponent(post.id)}`, { method: 'POST' })
+      .then(res => (res.ok ? res.json() : null))
+      .then(data => {
+        if (!data) { setLedStatus('error'); return; }
+        if (data.status?.includes('simulated')) setLedStatus('unavailable');
+        // else stays 'lit'
+      })
+      .catch(() => setLedStatus('error'));
   };
 
   const handlePredictGrade = async () => {
@@ -121,8 +110,7 @@ const FullscreenPost = ({ post, onClose, onSave, onSend, onRemix, liked = false,
             {/* Send to Board (LED) */}
             <button
               onClick={(e) => { e.stopPropagation(); handleSendToBoard(); }}
-              disabled={isLighting}
-              className={`p-2.5 rounded-full transition-colors disabled:opacity-40 ${
+              className={`p-2.5 rounded-full transition-colors ${
                 ledStatus === 'lit'         ? 'bg-amber-400 text-white'
                 : ledStatus === 'unavailable' ? 'bg-gray-200 text-gray-400'
                 : ledStatus === 'error'       ? 'bg-red-100 text-red-500'

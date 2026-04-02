@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import InteractiveBoard from '../common/InteractiveBoard';
 
 const API_BASE = process.env.REACT_APP_API_URL;
@@ -13,8 +13,9 @@ const CreatePage = ({ onPostProblem, onSaveProblem, user, remixData, onRemixCons
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [predictedGrade, setPredictedGrade] = useState(null);
-  const [isLightingBoard, setIsLightingBoard] = useState(false);
+  const [boardPreviewActive, setBoardPreviewActive] = useState(false);
   const [isPredicting, setIsPredicting] = useState(false);
+  const previewTimerRef = useRef(null);
 
   const resetForm = () => {
     setName('');
@@ -34,47 +35,35 @@ const CreatePage = ({ onPostProblem, onSaveProblem, user, remixData, onRemixCons
     return greenCount >= 1 && greenCount <= 2 && redCount >= 1 && redCount <= 2;
   };
 
-  // Light up the board with current holds
-  const handleLightBoard = async () => {
-    if (isLightingBoard) return;
-    setError('');
-    setMessage('');
-    
-    if (holds.length === 0) {
-      setError('Add some holds first before lighting up the board.');
-      return;
-    }
-
-    // Validate hold requirements
-    const greenCount = holds.filter(h => h.color === 'green').length;
-    const redCount = holds.filter(h => h.color === 'red').length;
-    if (greenCount < 1 || greenCount > 2) {
-      setError('Route must have 1 or 2 start holds (green).');
-      return;
-    }
-    if (redCount < 1 || redCount > 2) {
-      setError('Route must have 1 or 2 finish holds (red).');
-      return;
-    }
-
-    setIsLightingBoard(true);
-    try {
-      const response = await fetch(`${API_BASE}/hardware/led/preview`, {
+  // Fire-and-forget LED preview — does not block the UI
+  const firePreview = useCallback((currentHolds) => {
+    if (currentHolds.length === 0) {
+      fetch(`${API_BASE}/hardware/led/off`, { method: 'POST' }).catch(() => {});
+    } else {
+      fetch(`${API_BASE}/hardware/led/preview`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ holds }),
-      });
+        body: JSON.stringify({ holds: currentHolds }),
+      }).catch(() => {});
+    }
+  }, []);
 
-      if (response.ok) {
-        const data = await response.json();
-        setMessage(`Board lit up with ${data.hold_count} holds!`);
-      } else {
-        setError('Failed to light up board. Is the backend running?');
-      }
-    } catch (err) {
-      setError('Could not connect to backend. Make sure it\'s running on port 8000.');
-    } finally {
-      setIsLightingBoard(false);
+  // Auto-update LEDs (debounced 300 ms) whenever holds change while preview is active
+  useEffect(() => {
+    if (!boardPreviewActive) return;
+    clearTimeout(previewTimerRef.current);
+    previewTimerRef.current = setTimeout(() => firePreview(holds), 300);
+    return () => clearTimeout(previewTimerRef.current);
+  }, [holds, boardPreviewActive, firePreview]);
+
+  // Toggle preview on/off
+  const handleTogglePreview = () => {
+    if (boardPreviewActive) {
+      setBoardPreviewActive(false);
+      fetch(`${API_BASE}/hardware/led/off`, { method: 'POST' }).catch(() => {});
+    } else {
+      setBoardPreviewActive(true);
+      firePreview(holds);
     }
   };
 
@@ -256,14 +245,17 @@ const CreatePage = ({ onPostProblem, onSaveProblem, user, remixData, onRemixCons
             {/* Board Preview */}
             <div>
               <button
-                onClick={handleLightBoard}
-                disabled={isLightingBoard || !hasValidHolds()}
-                className="w-full bg-white text-gray-900 py-3 md:py-4 font-black uppercase tracking-wider hover:bg-gray-50 transition-colors border-2 border-gray-900 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                onClick={handleTogglePreview}
+                className={`w-full py-3 md:py-4 font-black uppercase tracking-wider transition-colors border-2 flex items-center justify-center gap-2 ${
+                  boardPreviewActive
+                    ? 'bg-amber-500 text-white border-amber-500 hover:bg-amber-400'
+                    : 'bg-white text-gray-900 border-gray-900 hover:bg-gray-50'
+                }`}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                 </svg>
-                {isLightingBoard ? 'Loading...' : 'Preview on Board'}
+                {boardPreviewActive ? 'Preview Active — Click to Stop' : 'Preview on Board'}
               </button>
             </div>
 

@@ -95,7 +95,7 @@ def _init_strip():
             LED_STRIP_TOTAL,
             brightness=BRIGHTNESS,
             auto_write=False,
-            pixel_order=_neopixel.GRB,
+            pixel_order=_neopixel.RGB,
         )
         return True
     except Exception as e:
