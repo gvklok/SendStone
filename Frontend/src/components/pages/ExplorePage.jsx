@@ -264,9 +264,12 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
     if (found) {
       setOpenPost(found);
       onOpenPost?.(found.id);
+      clearOpenPost?.();
+    } else if (!loading) {
+      // Routes have loaded but this ID wasn't found (deleted/private) — clear anyway
+      clearOpenPost?.();
     }
-    clearOpenPost?.();
-  }, [openPostId, mappedRoutes, onOpenPost, clearOpenPost]);
+  }, [openPostId, mappedRoutes, loading, onOpenPost, clearOpenPost]);
 
   return (
     <div className="flex-1 overflow-y-auto pb-20 md:pb-0 p-6 md:p-12 bg-neutral-100">

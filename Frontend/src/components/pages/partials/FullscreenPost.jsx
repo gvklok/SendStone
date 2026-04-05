@@ -28,8 +28,13 @@ const FullscreenPost = ({ post, onClose, onSave, onSend, onRemix, liked = false,
     }
 
     // Optimistic: show lit immediately so the button feels instant
+    // Use preview endpoint with holds already in memory — avoids a DB round-trip
     setLedStatus('lit');
-    fetch(`${API_BASE}/hardware/led/routes/${encodeURIComponent(post.id)}`, { method: 'POST' })
+    fetch(`${API_BASE}/hardware/led/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ holds: post.holds || [] }),
+    })
       .then(res => (res.ok ? res.json() : null))
       .then(data => {
         if (!data) { setLedStatus('error'); return; }
