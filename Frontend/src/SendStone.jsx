@@ -915,6 +915,7 @@ export default function ClimbingBoardApp() {
           onSave={handleToggleSaveFromExplore}
           likedIds={userLikedIds}
           onOpenPost={recordOpenPost}
+          onRemix={handleRemix}
         />
       )}
       {activeTab === 'yourRoutes' && (
@@ -925,6 +926,7 @@ export default function ClimbingBoardApp() {
           savedIds={new Set(userSavedProblems.map((p) => String(p.id)))}
           likedIds={userLikedIds}
           onOpenPost={recordOpenPost}
+          onRemix={handleRemix}
         />
       )}
       {activeTab === 'profile' && (

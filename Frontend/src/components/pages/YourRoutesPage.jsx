@@ -6,7 +6,7 @@ import FullscreenPost from './partials/FullscreenPost';
 const API_BASE = process.env.REACT_APP_API_URL;
 const PAGE_SIZE = 12;
 
-const YourRoutesPage = ({ user, onSave, onSend, savedIds = new Set(), likedIds = new Set(), onOpenPost }) => {
+const YourRoutesPage = ({ user, onSave, onSend, savedIds = new Set(), likedIds = new Set(), onOpenPost, onRemix }) => {
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -335,6 +335,7 @@ const YourRoutesPage = ({ user, onSave, onSend, savedIds = new Set(), likedIds =
               setOpenPost((prev) => (prev ? { ...prev, sends: result.sendCount } : prev));
             }
           }}
+          onRemix={() => { onRemix?.(openPost); setOpenPost(null); }}
           liked={likedIds.has(openPost.id)}
           saved={savedIds.has(openPost.id)}
         />

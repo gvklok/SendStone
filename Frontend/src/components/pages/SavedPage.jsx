@@ -3,7 +3,7 @@ import { Search, ChevronDown } from 'lucide-react';
 import ProblemGridCard from '../common/ProblemGridCard';
 import FullscreenPost from './partials/FullscreenPost';
 
-const SavedPage = ({ savedProblems = [], onSend, onSave, likedIds = new Set(), onOpenPost }) => {
+const SavedPage = ({ savedProblems = [], onSend, onSave, likedIds = new Set(), onOpenPost, onRemix }) => {
   const [searchInput, setSearchInput] = useState('');
   const [activeSearch, setActiveSearch] = useState('');
   const [difficultyFilter, setDifficultyFilter] = useState('');
@@ -165,6 +165,7 @@ const SavedPage = ({ savedProblems = [], onSend, onSave, likedIds = new Set(), o
           onClose={() => setOpenPost(null)}
           onSave={() => onSave?.(openPost.id)}
           onSend={() => onSend?.(openPost.id)}
+          onRemix={() => { onRemix?.(openPost); setOpenPost(null); }}
           liked={likedIds.has(openPost.id)}
           saved
         />
