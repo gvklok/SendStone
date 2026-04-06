@@ -77,7 +77,8 @@ async def get_profile(user_id: str):
             .execute()
         )
     except Exception as e:
-        raise HTTPException(status_code=404, detail=f"Profile not found: {str(e)}")
+        print(f"DB error in get_profile: {e}")
+        raise HTTPException(status_code=404, detail="Profile not found")
     
     if not response.data:
         raise HTTPException(status_code=404, detail="Profile not found")
@@ -96,7 +97,8 @@ async def list_profiles():
         response = supabase.table("profiles").select("*").execute()
         return response.data or []
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch profiles: {str(e)}")
+        print(f"DB error in list_profiles: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("", response_model=ProfileResponse, status_code=201)
@@ -133,7 +135,7 @@ async def create_or_update_profile(profile: ProfileCreateUpdate):
     except Exception as e:
         # Log the actual error for debugging
         print(f"Profile upsert error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to create/update profile: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to create/update profile")
 
 
 @router.patch("/{user_id}", response_model=ProfileResponse)
@@ -145,11 +147,11 @@ async def update_profile_fields(user_id: str, updates: dict):
     """
     supabase = get_supabase_admin()
     
-    # Remove id from updates if present (shouldn't be updated)
-    updates.pop("id", None)
-    
+    ALLOWED_FIELDS = {"name", "username", "photo_url", "climber_level"}
+    updates = {k: v for k, v in updates.items() if k in ALLOWED_FIELDS}
+
     if not updates:
-        raise HTTPException(status_code=400, detail="No fields to update")
+        raise HTTPException(status_code=400, detail="No valid fields to update")
     
     try:
         response = (
@@ -164,7 +166,8 @@ async def update_profile_fields(user_id: str, updates: dict):
         
         return response.data[0]
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to update profile: {str(e)}")
+        print(f"DB error in update_profile_fields: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update profile")
 
 
 @router.delete("/{user_id}")
@@ -187,7 +190,8 @@ async def delete_profile(user_id: str):
         
         return {"message": "Profile deleted successfully"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to delete profile: {str(e)}")
+        print(f"DB error in delete_profile: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete profile")
 
 
 @router.post("/{user_id}/photo")

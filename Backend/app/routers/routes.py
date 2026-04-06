@@ -355,7 +355,8 @@ async def save_route(route_id: str, user_id: str = Query(..., description="User 
     try:
         route = supabase.table("routes").select("id").eq("id", route_id).limit(1).execute()
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+        print(f"DB error in save_route: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
     if route is None or not route.data:
         raise HTTPException(status_code=404, detail="Route not found")
@@ -378,8 +379,9 @@ async def save_route(route_id: str, user_id: str = Query(..., description="User 
         # Foreign key error - user doesn't exist
         if "foreign key" in str(e).lower() or "23503" in str(e):
             raise HTTPException(status_code=400, detail="Invalid user ID - user does not exist")
-        raise HTTPException(status_code=500, detail=str(e))
-    
+        print(f"DB error inserting save: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
     return {"saved": True, "saved_at": response.data[0]["saved_at"]}
 
 
@@ -410,7 +412,8 @@ async def send_route(route_id: str, user_id: str = Query(..., description="User 
     try:
         route = supabase.table("routes").select("id, send_count").eq("id", route_id).limit(1).execute()
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+        print(f"DB error in send_route: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
     if route is None or not route.data:
         raise HTTPException(status_code=404, detail="Route not found")
@@ -430,7 +433,8 @@ async def send_route(route_id: str, user_id: str = Query(..., description="User 
         # Foreign key error - user doesn't exist
         if "foreign key" in str(e).lower() or "23503" in str(e):
             raise HTTPException(status_code=400, detail="Invalid user ID - user does not exist")
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"DB error inserting send: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
     # Increment send_count on route
     new_count = (route_data["send_count"] or 0) + 1
