@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Mountain, Bookmark, Lightbulb, X, Shuffle } from 'lucide-react';
 import BoardPreview from '../../common/BoardPreview';
-
 const API_BASE = process.env.REACT_APP_API_URL;
+
 
 const FullscreenPost = ({ post, onClose, onSave, onSend, onRemix, liked = false, saved = false }) => {
   const [predictedGrade, setPredictedGrade] = useState(null);
@@ -28,7 +28,6 @@ const FullscreenPost = ({ post, onClose, onSave, onSend, onRemix, liked = false,
     }
 
     // Optimistic: show lit immediately so the button feels instant
-    // Use preview endpoint with holds already in memory — avoids a DB round-trip
     setLedStatus('lit');
     fetch(`${API_BASE}/hardware/led/preview`, {
       method: 'POST',
@@ -46,7 +45,6 @@ const FullscreenPost = ({ post, onClose, onSave, onSend, onRemix, liked = false,
 
   const handlePredictGrade = async () => {
     if (isPredicting) return;
-    // Capture post data before await so stale closure can't read a different post
     const holds = post.holds || [];
     const angle = post.angle || 40;
     setPredictionError(null);

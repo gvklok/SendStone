@@ -69,7 +69,7 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
 
   // Always-current values for observer callbacks and auto-fill effect (avoids stale closures)
   const scrollStateRef = useRef({});
-  scrollStateRef.current = { loading, loadingMore, hasMore, page, activeSearch, difficultyFilter, viewMode };
+  scrollStateRef.current = { loading, loadingMore, hasMore, page, activeSearch, difficultyFilter, viewMode, completionFilter, likedIds };
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const pageStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
@@ -96,9 +96,25 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
     setError(null);
 
     try {
+      const { completionFilter: cf, likedIds: lids } = scrollStateRef.current;
+
+      // "Ascended" filter: fetch only the routes the user has sent
+      if (cf === 'ascended') {
+        if (!lids || lids.size === 0) {
+          if (requestId !== latestRequestRef.current) return;
+          setRoutes(append ? (prev) => prev : []);
+          setTotal(0);
+          setHasMore(false);
+          setLoading(false);
+          setLoadingMore(false);
+          return;
+        }
+      }
+
       let url = `${API_BASE}/routes?limit=${PAGE_SIZE}&page=${pageNum}&sort=-send_count`;
       if (search.trim()) url += `&search=${encodeURIComponent(search.trim())}`;
       if (difficulty) url += `&difficulty=v${difficulty}`;
+      if (cf === 'ascended') url += `&ids=${[...lids].join(',')}`;
 
       const res = await fetch(url);
       if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
@@ -160,7 +176,7 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
     setPage(1);
     setHasMore(true);
     fetchPage(activeSearch, difficultyFilter, 1);
-  }, [difficultyFilter, activeSearch, fetchPage]);
+  }, [difficultyFilter, activeSearch, completionFilter, fetchPage]);
 
   const handleSearch = () => {
     setActiveSearch(searchInput);
@@ -250,12 +266,12 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
   }, [routes]);
 
   const filteredRoutes = useMemo(() => {
-    return mappedRoutes.filter((route) => {
-      const ascended = likedIds.has(route.id) || likedIds.has(String(route.id));
-      if (completionFilter === 'ascended') return ascended;
-      if (completionFilter === 'not_ascended') return !ascended;
-      return true;
-    });
+    // 'ascended': backend already filtered to only sent routes — no client-side pass needed
+    if (completionFilter === 'ascended') return mappedRoutes;
+    if (completionFilter === 'not_ascended') {
+      return mappedRoutes.filter((route) => !likedIds.has(route.id) && !likedIds.has(String(route.id)));
+    }
+    return mappedRoutes;
   }, [mappedRoutes, likedIds, completionFilter]);
 
   useEffect(() => {
@@ -433,7 +449,7 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
                       onOpenPost?.(post);
                     }
                   }}
-                  onBookmark={() => onSave?.(id)}
+                  onBookmark={() => onSave?.(id, mappedRoutes.find((p) => p.id === id))}
                   onHeart={async () => {
                     const result = await onSend?.(id);
                     if (result && typeof result.sendCount === 'number') {
@@ -471,7 +487,7 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
         <FullscreenPost
           post={openPost}
           onClose={() => setOpenPost(null)}
-          onSave={() => onSave?.(openPost.id)}
+          onSave={() => onSave?.(openPost.id, openPost)}
           onSend={async () => {
             const result = await onSend?.(openPost.id);
             if (result && typeof result.sendCount === 'number') {

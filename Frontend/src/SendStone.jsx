@@ -16,6 +16,13 @@ import './routeCache';
 
 const API_BASE = process.env.REACT_APP_API_URL;
 
+/** Get the current Supabase Bearer token for authenticated API calls. */
+const getAuthHeaders = async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('Not authenticated');
+  return { 'Authorization': `Bearer ${session.access_token}` };
+};
+
 const LOGIN_POPUP_SESSION_KEY = 'sendstone_login_popup_shown';
 const LOGIN_SESSION_COUNTED_KEY = 'sendstone_login_session_counted';
 const THEME_STORAGE_KEY = 'sendstone_theme';
@@ -144,7 +151,8 @@ export default function ClimbingBoardApp() {
   const fetchDashboardStats = async (userId) => {
     if (!userId) return;
     try {
-      const res = await fetch(`${API_BASE}/profiles/${encodeURIComponent(userId)}/dashboard`);
+      const authHeaders = await getAuthHeaders();
+      const res = await fetch(`${API_BASE}/profiles/${encodeURIComponent(userId)}/dashboard`, { headers: authHeaders });
       if (!res.ok) throw new Error(`Failed stats fetch: ${res.status}`);
       const data = await res.json();
       setDashboardStats({
@@ -169,8 +177,10 @@ export default function ClimbingBoardApp() {
   const logLoginSession = async (userId) => {
     if (!userId) return;
     try {
+      const authHeaders = await getAuthHeaders();
       await fetch(`${API_BASE}/profiles/${encodeURIComponent(userId)}/sessions`, {
         method: 'POST',
+        headers: authHeaders,
       });
     } catch {
       // ignore logging failures
@@ -179,10 +189,15 @@ export default function ClimbingBoardApp() {
   const hydrateUserEngagement = async (userData, attempt = 0) => {
     if (!userData?.id || !userData?.email) return;
     try {
+      const authHeaders = await getAuthHeaders();
       const [savedRes, sentRes] = await Promise.all([
-        fetch(`${API_BASE}/routes/meta/saved?user_id=${encodeURIComponent(userData.id)}`),
-        fetch(`${API_BASE}/routes/meta/sent_ids?user_id=${encodeURIComponent(userData.id)}`),
+        fetch(`${API_BASE}/routes/meta/saved`, { headers: authHeaders }),
+        fetch(`${API_BASE}/routes/meta/sent_ids`, { headers: authHeaders }),
       ]);
+
+      if (!savedRes.ok) {
+        console.error('[saved routes] fetch failed:', savedRes.status, await savedRes.text().catch(() => ''));
+      }
 
       if (savedRes.ok) {
         const savedData = await savedRes.json();
@@ -210,6 +225,10 @@ export default function ClimbingBoardApp() {
         });
       }
 
+      if (!sentRes.ok) {
+        console.error('[sent ids] fetch failed:', sentRes.status, await sentRes.text().catch(() => ''));
+      }
+
       if (sentRes.ok) {
         const sentData = await sentRes.json();
         const sentIds = (sentData.route_ids || []).map((id) => `${userData.email}::${String(id)}`);
@@ -223,20 +242,22 @@ export default function ClimbingBoardApp() {
         });
       }
     } catch (error) {
+      console.error(`[hydrate attempt ${attempt}] error:`, error?.message || error);
       if (attempt < 3 && hasActiveLoginSessionRef.current) {
         const delay = (attempt + 1) * 2000; // 2s, 4s, 6s
         hydrateRetryTimerRef.current = setTimeout(() => hydrateUserEngagement(userData, attempt + 1), delay);
       } else if (attempt >= 3) {
-        console.error('Failed to hydrate user engagement:', error);
+        console.error('Failed to hydrate user engagement after 3 retries:', error);
       }
     }
   };
   // Sync user profile to profiles table via backend API
   const syncProfileToDatabase = async (userId, userData) => {
     try {
+      const authHeaders = await getAuthHeaders();
       const response = await fetch(`${API_BASE}/profiles`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify({
           id: userId,
           email: userData.email,
@@ -543,8 +564,10 @@ export default function ClimbingBoardApp() {
       const formData = new FormData();
       formData.append('file', file);
 
+      const authHeaders = await getAuthHeaders();
       const res = await fetch(`${API_BASE}/profiles/${encodeURIComponent(user.id)}/photo`, {
         method: 'POST',
+        headers: authHeaders,
         body: formData,
       });
       const data = await res.json();
@@ -573,9 +596,10 @@ export default function ClimbingBoardApp() {
   const handleUpdateEmail = async (newEmail) => {
     if (!user?.id) return { ok: false, error: 'Not logged in.' };
     try {
+      const authHeaders = await getAuthHeaders();
       const res = await fetch(`${API_BASE}/profiles/${encodeURIComponent(user.id)}/email`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify({ email: newEmail }),
       });
       const data = await res.json();
@@ -591,8 +615,10 @@ export default function ClimbingBoardApp() {
   const handleDeleteAccount = async () => {
     if (!user?.id) return { ok: false, error: 'Not logged in.' };
     try {
+      const authHeaders = await getAuthHeaders();
       const res = await fetch(`${API_BASE}/profiles/${encodeURIComponent(user.id)}/account`, {
         method: 'DELETE',
+        headers: authHeaders,
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || `Delete failed (${res.status})`);
@@ -609,9 +635,10 @@ export default function ClimbingBoardApp() {
 
     try {
       // Post to backend API
+      const authHeaders = await getAuthHeaders();
       const res = await fetch(`${API_BASE}/routes`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify({
           name: problem.name,
           difficulty: problem.difficulty,
@@ -619,7 +646,6 @@ export default function ClimbingBoardApp() {
           holds: problem.holds || [],
           angle: problem.angle || 40,
           visibility: 'public',
-          creator_id: user.id || null,
         }),
       });
 
@@ -660,9 +686,10 @@ export default function ClimbingBoardApp() {
     if (!user) return;
 
     try {
+      const authHeaders = await getAuthHeaders();
       const res = await fetch(`${API_BASE}/routes`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify({
           name: problem.name || 'Untitled Problem',
           difficulty: problem.difficulty || 'v0',
@@ -670,7 +697,6 @@ export default function ClimbingBoardApp() {
           holds: problem.holds || [],
           angle: problem.angle || 40,
           visibility: 'private',
-          creator_id: user.id || null,
         }),
       });
 
@@ -692,7 +718,7 @@ export default function ClimbingBoardApp() {
     }
   };
 
-  const handleToggleSaveFromExplore = async (problemId) => {
+  const handleToggleSaveFromExplore = async (problemId, routeData) => {
     if (!user) {
       setPendingTab('saved');
       setShowAuth(true);
@@ -704,10 +730,11 @@ export default function ClimbingBoardApp() {
     );
 
     try {
-      const endpoint = `${API_BASE}/routes/${encodeURIComponent(routeId)}/save?user_id=${encodeURIComponent(user.id)}`;
+      const authHeaders = await getAuthHeaders();
+      const endpoint = `${API_BASE}/routes/${encodeURIComponent(routeId)}/save`;
 
       if (existing) {
-        const res = await fetch(endpoint, { method: 'DELETE' });
+        const res = await fetch(endpoint, { method: 'DELETE', headers: authHeaders });
         if (!res.ok) throw new Error(`Failed unsave: ${res.status}`);
         setSavedProblems((prev) =>
           prev.filter((p) => !(p.userEmail === user.email && String(p.id) === routeId))
@@ -719,27 +746,24 @@ export default function ClimbingBoardApp() {
         return { saved: false };
       }
 
-      const saveRes = await fetch(endpoint, { method: 'PUT' });
+      const saveRes = await fetch(endpoint, { method: 'PUT', headers: authHeaders });
       if (!saveRes.ok) throw new Error(`Failed save: ${saveRes.status}`);
 
-      // Use local data — no extra fetch needed
-      const routeData = publicProblems.find((p) => String(p.id) === routeId);
+      // Use passed routeData first, fall back to publicProblems cache
+      const source = routeData || publicProblems.find((p) => String(p.id) === routeId);
 
       const newProblem = {
         id: routeId,
-        name: routeData?.name || 'Route',
-        grade: routeData?.grade || routeData?.difficulty?.toUpperCase() || 'V0',
-        sends: routeData?.sends ?? routeData?.send_count ?? 0,
-        holds: routeData?.holds || [],
-        angle: routeData?.angle,
-        description: routeData?.description || '',
+        name: source?.name || 'Route',
+        grade: source?.grade || source?.difficulty?.toUpperCase() || 'V0',
+        sends: source?.sends ?? source?.send_count ?? 0,
+        holds: source?.holds || [],
+        angle: source?.angle,
+        description: source?.description || '',
         savedDate: new Date().toISOString(),
         userEmail: user.email,
-        authorName: routeData?.authorName || routeData?.author_name || 'Anonymous',
-        authorUsername:
-          routeData?.authorUsername ||
-          routeData?.author_username ||
-          'climber',
+        authorName: source?.authorName || source?.author_name || 'Anonymous',
+        authorUsername: source?.authorUsername || source?.author_username || 'climber',
       };
       setSavedProblems((prev) => [newProblem, ...prev]);
       setDashboardStats((prev) => ({
@@ -767,9 +791,11 @@ export default function ClimbingBoardApp() {
 
     const syncSend = async () => {
       try {
-        const url = `${API_BASE}/routes/${encodeURIComponent(routeId)}/send?user_id=${encodeURIComponent(user.id)}`;
+        const authHeaders = await getAuthHeaders();
+        const url = `${API_BASE}/routes/${encodeURIComponent(routeId)}/send`;
         const res = await fetch(url, {
           method: alreadyLiked ? 'DELETE' : 'PUT',
+          headers: authHeaders,
         });
 
         if (!res.ok) {

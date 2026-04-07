@@ -1,9 +1,16 @@
 """Machine Learning endpoints for route grade prediction."""
+import time
+from collections import defaultdict
 from typing import List
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from app.services import ml_predictor
+
+# Simple in-memory rate limit: max 20 requests per minute per IP
+_rate_limit: dict = defaultdict(list)
+_RATE_LIMIT_MAX = 30
+_RATE_LIMIT_WINDOW = 60  # seconds
 
 router = APIRouter(prefix="/ml", tags=["ml"])
 
@@ -37,12 +44,20 @@ class PredictResponse(BaseModel):
 # =============================================================================
 
 @router.post("/predict", response_model=PredictResponse)
-async def predict_grade(request: PredictRequest):
+async def predict_grade(request: PredictRequest, http_request: Request):
     """Predict the grade of a climbing route based on holds and angle.
-    
-    Uses the SENDIT v2 neural network model for accurate grade prediction.
-    Returns error if the model is not available.
+
+    Open to all users. Simple IP rate limit to prevent abuse.
     """
+    ip = http_request.client.host
+    now = time.time()
+    timestamps = _rate_limit[ip]
+    # Drop timestamps outside the window
+    _rate_limit[ip] = [t for t in timestamps if now - t < _RATE_LIMIT_WINDOW]
+    if len(_rate_limit[ip]) >= _RATE_LIMIT_MAX:
+        raise HTTPException(status_code=429, detail="Too many requests — slow down")
+    _rate_limit[ip].append(now)
+
     if not request.holds:
         raise HTTPException(status_code=400, detail="No holds provided")
 
