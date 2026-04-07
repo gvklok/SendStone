@@ -2,11 +2,18 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Search, RefreshCw, ChevronDown } from 'lucide-react';
 import ProblemGridCard from '../common/ProblemGridCard';
 import FullscreenPost from './partials/FullscreenPost';
+import { supabase } from '../../supabaseClient';
+
+const getAuthHeaders = async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) return {};
+  return { 'Authorization': `Bearer ${session.access_token}` };
+};
 
 const API_BASE = process.env.REACT_APP_API_URL;
 const PAGE_SIZE = 12;
 
-const YourRoutesPage = ({ user, onSave, onSend, savedIds = new Set(), likedIds = new Set(), onOpenPost }) => {
+const YourRoutesPage = ({ user, onSave, onSend, savedIds = new Set(), likedIds = new Set(), onOpenPost, onRemix }) => {
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -34,7 +41,8 @@ const YourRoutesPage = ({ user, onSave, onSend, savedIds = new Set(), likedIds =
         if (search.trim()) url += `&search=${encodeURIComponent(search.trim())}`;
         if (difficulty) url += `&difficulty=v${difficulty}`;
 
-        const res = await fetch(url);
+        const authHeaders = await getAuthHeaders();
+        const res = await fetch(url, { headers: authHeaders });
         if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
 
         const data = await res.json();
@@ -295,7 +303,7 @@ const YourRoutesPage = ({ user, onSave, onSend, savedIds = new Set(), likedIds =
                     onOpenPost?.(post);
                   }
                 }}
-                onBookmark={() => onSave?.(id)}
+                onBookmark={() => onSave?.(id, mappedRoutes.find((p) => p.id === id))}
                 onHeart={async () => {
                   const result = await onSend?.(id);
                   if (result && typeof result.sendCount === 'number') {
@@ -323,7 +331,7 @@ const YourRoutesPage = ({ user, onSave, onSend, savedIds = new Set(), likedIds =
         <FullscreenPost
           post={openPost}
           onClose={() => setOpenPost(null)}
-          onSave={() => onSave?.(openPost.id)}
+          onSave={() => onSave?.(openPost.id, openPost)}
           onSend={async () => {
             const result = await onSend?.(openPost.id);
             if (result && typeof result.sendCount === 'number') {
@@ -335,6 +343,7 @@ const YourRoutesPage = ({ user, onSave, onSend, savedIds = new Set(), likedIds =
               setOpenPost((prev) => (prev ? { ...prev, sends: result.sendCount } : prev));
             }
           }}
+          onRemix={() => { onRemix?.(openPost); setOpenPost(null); }}
           liked={likedIds.has(openPost.id)}
           saved={savedIds.has(openPost.id)}
         />

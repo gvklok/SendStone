@@ -3,9 +3,10 @@ import base64
 from datetime import datetime, timezone
 import re
 from typing import Optional
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel
-from app.database import get_supabase_admin, get_supabase_admin_raw  # Use admin client to bypass RLS
+from app.database import get_supabase_admin, get_supabase_admin_raw
+from app.dependencies import get_current_user
 from app.models import ProfileResponse
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
@@ -77,7 +78,8 @@ async def get_profile(user_id: str):
             .execute()
         )
     except Exception as e:
-        raise HTTPException(status_code=404, detail=f"Profile not found: {str(e)}")
+        print(f"DB error in get_profile: {e}")
+        raise HTTPException(status_code=404, detail="Profile not found")
     
     if not response.data:
         raise HTTPException(status_code=404, detail="Profile not found")
@@ -86,29 +88,28 @@ async def get_profile(user_id: str):
 
 
 @router.get("", response_model=list[ProfileResponse])
-async def list_profiles():
-    """
-    List all user profiles.
-    """
+async def list_profiles(current_user_id: str = Depends(get_current_user)):
+    """List all user profiles. Requires authentication."""
     supabase = get_supabase_admin()
-    
+
     try:
         response = supabase.table("profiles").select("*").execute()
         return response.data or []
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch profiles: {str(e)}")
+        print(f"DB error in list_profiles: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("", response_model=ProfileResponse, status_code=201)
-async def create_or_update_profile(profile: ProfileCreateUpdate):
+async def create_or_update_profile(profile: ProfileCreateUpdate, current_user_id: str = Depends(get_current_user)):
     """
     Create or update a user profile (upsert).
-    
-    If a profile with the given ID exists, it will be updated.
-    Otherwise, a new profile will be created.
+    Users can only create/update their own profile.
     """
+    if profile.id != current_user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
     supabase = get_supabase_admin()
-    
+
     profile_data = {
         "id": profile.id,
         "email": profile.email,
@@ -133,23 +134,21 @@ async def create_or_update_profile(profile: ProfileCreateUpdate):
     except Exception as e:
         # Log the actual error for debugging
         print(f"Profile upsert error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to create/update profile: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to create/update profile")
 
 
 @router.patch("/{user_id}", response_model=ProfileResponse)
-async def update_profile_fields(user_id: str, updates: dict):
-    """
-    Partially update a profile.
-    
-    Only the fields provided in the request body will be updated.
-    """
+async def update_profile_fields(user_id: str, updates: dict, current_user_id: str = Depends(get_current_user)):
+    """Partially update a profile. Users can only update their own profile."""
+    if current_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
     supabase = get_supabase_admin()
-    
-    # Remove id from updates if present (shouldn't be updated)
-    updates.pop("id", None)
-    
+
+    ALLOWED_FIELDS = {"name", "username", "photo_url", "climber_level"}
+    updates = {k: v for k, v in updates.items() if k in ALLOWED_FIELDS}
+
     if not updates:
-        raise HTTPException(status_code=400, detail="No fields to update")
+        raise HTTPException(status_code=400, detail="No valid fields to update")
     
     try:
         response = (
@@ -164,14 +163,15 @@ async def update_profile_fields(user_id: str, updates: dict):
         
         return response.data[0]
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to update profile: {str(e)}")
+        print(f"DB error in update_profile_fields: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update profile")
 
 
 @router.delete("/{user_id}")
-async def delete_profile(user_id: str):
-    """
-    Delete a user profile.
-    """
+async def delete_profile(user_id: str, current_user_id: str = Depends(get_current_user)):
+    """Delete a user profile. Users can only delete their own profile."""
+    if current_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
     supabase = get_supabase_admin()
     
     try:
@@ -187,14 +187,15 @@ async def delete_profile(user_id: str):
         
         return {"message": "Profile deleted successfully"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to delete profile: {str(e)}")
+        print(f"DB error in delete_profile: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete profile")
 
 
 @router.post("/{user_id}/photo")
-async def update_profile_photo(user_id: str, file: UploadFile = File(...)):
-    """
-    Update a user's profile photo from an uploaded image file.
-    """
+async def update_profile_photo(user_id: str, file: UploadFile = File(...), current_user_id: str = Depends(get_current_user)):
+    """Update a user's profile photo. Users can only update their own photo."""
+    if current_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Only image uploads are allowed")
 
@@ -229,10 +230,10 @@ async def update_profile_photo(user_id: str, file: UploadFile = File(...)):
 
 
 @router.patch("/{user_id}/email")
-async def update_connected_email(user_id: str, payload: EmailUpdateRequest):
-    """
-    Update a user's connected email in both auth and profile records.
-    """
+async def update_connected_email(user_id: str, payload: EmailUpdateRequest, current_user_id: str = Depends(get_current_user)):
+    """Update a user's connected email. Users can only update their own email."""
+    if current_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
     new_email = payload.email.strip().lower()
     if "@" not in new_email or "." not in new_email.split("@")[-1]:
         raise HTTPException(status_code=400, detail="Invalid email format")
@@ -273,10 +274,10 @@ async def update_connected_email(user_id: str, payload: EmailUpdateRequest):
 
 
 @router.delete("/{user_id}/account")
-async def delete_account(user_id: str):
-    """
-    Permanently delete a user's account and related records.
-    """
+async def delete_account(user_id: str, current_user_id: str = Depends(get_current_user)):
+    """Permanently delete a user's account. Users can only delete their own account."""
+    if current_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
     errors = []
     deleted_auth = False
 
@@ -331,12 +332,14 @@ async def delete_account(user_id: str):
 
 
 @router.post("/{user_id}/sessions")
-async def log_user_session(user_id: str):
+async def log_user_session(user_id: str, current_user_id: str = Depends(get_current_user)):
     """
     Log a login session for a user.
 
     Uses the `sessions` table if available. Falls back gracefully if insert fails.
     """
+    if current_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
     clients = [get_supabase_admin(), get_supabase_admin_raw()]
     payloads = [
         {"user_id": user_id},
@@ -356,10 +359,10 @@ async def log_user_session(user_id: str):
 
 
 @router.get("/{user_id}/dashboard", response_model=DashboardStatsResponse)
-async def get_dashboard_stats(user_id: str):
-    """
-    Return database-backed dashboard counts for a user.
-    """
+async def get_dashboard_stats(user_id: str, current_user_id: str = Depends(get_current_user)):
+    """Return dashboard stats. Users can only view their own dashboard."""
+    if current_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
     clients = [get_supabase_admin(), get_supabase_admin_raw()]
 
     created_route_ids = set()

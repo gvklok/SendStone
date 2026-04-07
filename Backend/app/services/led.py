@@ -1,36 +1,12 @@
-"""LED strip control service (neopixel / rpi_ws281x).
-
-Hardware layout
----------------
-50 NeoPixels snaked across the climbing board.
-The strip starts at the bottom-left corner of the board and snakes
-upward row by row:
-
-  Row 0 (y ≈ 0):  LEDs  0-4   →  left  to right
-  Row 1 (y ≈ 1.4):LEDs  5-9   ←  right to left
-  Row 2 (y ≈ 2.8):LEDs 10-14  →  left  to right
-  ...  (alternating)
-
-LEDS_PER_ROW = 5 gives 10 rows covering the full board height.
-
-Hold coordinates on the board range from
-  x: 0 – 10  (columns)
-  y: 0 – 14  (rows, y=0 is bottom)
-
-Each hold is mapped to the nearest LED position; multiple holds that
-map to the same LED are blended (brightest / highest-priority color wins).
-
-Fallback
---------
-If `board` or `neopixel` cannot be imported (i.e. not running on a Pi)
-the module still works — is_available() returns False and every function
-is a safe no-op so the API still returns 200 everywhere.
+"""
+LED strip control service (neopixel / rpi_ws281x).
+Direct Mapping Version: Every (x, y) coordinate corresponds to exactly one LED.
 """
 
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 # ─────────────────────────────────────────────────────────────
-#  Hardware availability — graceful import
+# Hardware availability
 # ─────────────────────────────────────────────────────────────
 _HW_AVAILABLE = False
 _pixels = None
@@ -40,194 +16,134 @@ try:
     import neopixel as _neopixel
     _HW_AVAILABLE = True
 except (ImportError, NotImplementedError):
-    # Not on a Pi, or GPIO not accessible
     pass
 
 # ─────────────────────────────────────────────────────────────
-#  Configuration
+# Configuration & Direct Map
 # ─────────────────────────────────────────────────────────────
 
-LED_COUNT    = 50
-LED_PIN      = None          # set below after import check
-BRIGHTNESS   = 0.3
-LEDS_PER_ROW = 5             # LEDs across each physical row of the snake
-
-# Board coordinate ranges (handholds only)
-BOARD_X_MAX = 10.0
-BOARD_Y_MAX = 14.0
-
-# Hold color → RGB (library converts to GRB wire order via pixel_order=GRB)
-COLORS: Dict[str, tuple] = {
-    "green":  (0,   200, 60),    # Start holds  — green
-    "blue":   (5,   103, 232),   # Hand holds   — blue
-    "yellow": (234, 179, 8),     # Foot holds   — yellow
-    "red":    (239, 68,  68),    # Finish holds — red
+# The key is a string "x,y" and the value is the physical LED index (25-249)
+COORD_TO_LED = {
+    "0,0": 25, "1,0": 26, "1.5,0.5": 27, "2,0": 28, "3,0": 29,
+    "3.5,0.5": 30, "4,0": 31, "5,0": 32, "5.5,0.5": 33, "6,0": 34,
+    "7,0": 35, "7.5,0.5": 36, "8,0": 37, "9,0": 38, "10,0": 39,
+    "9.5,0.5": 40, "10,1": 41, "9,1": 42, "8.5,1.5": 43, "8,1": 44,
+    "7,1": 45, "6.5,1.5": 46, "6,1": 47, "5,1": 48, "4.5,1.5": 49,
+    "4,1": 50, "3,1": 51, "2.5,1.5": 52, "2,1": 53, "1,1": 54,
+    "0,1": 55, "0.5,1.5": 56, "0,2": 57, "1,2": 58, "1.5,2.5": 59,
+    "2,2": 60, "3,2": 61, "3.5,2.5": 62, "4,2": 63, "5,2": 64,
+    "5.5,2.5": 65, "6,2": 66, "7,2": 67, "7.5,2.5": 68, "8,2": 69,
+    "9,2": 70, "10,2": 71, "9.5,2.5": 72, "10,3": 73, "9,3": 74,
+    "8.5,3.5": 75, "8,3": 76, "7,3": 77, "6.5,3.5": 78, "6,3": 79,
+    "5,3": 80, "4.5,3.5": 81, "4,3": 82, "3,3": 83, "2.5,3.5": 84,
+    "2,3": 85, "1,3": 86, "0,3": 87, "0.5,3.5": 88, "0,4": 89,
+    "1,4": 90, "1.5,4.5": 91, "2,4": 92, "3,4": 93, "3.5,4.5": 94,
+    "4,4": 95, "5,4": 96, "5.5,4.5": 97, "6,4": 98, "7,4": 99,
+    "7.5,4.5": 100, "8,4": 101, "9,4": 102, "10,4": 103, "9.5,4.5": 104,
+    "10,5": 105, "9,5": 106, "8.5,5.5": 107, "8,5": 108, "7,5": 109,
+    "6.5,5.5": 110, "6,5": 111, "5,5": 112, "4.5,5.5": 113, "4,5": 114,
+    "3,5": 115, "2.5,5.5": 116, "2,5": 117, "1,5": 118, "0,5": 119,
+    "0.5,5.5": 120, "0,6": 121, "1,6": 122, "1.5,6.5": 123, "2,6": 124,
+    "3,6": 125, "3.5,6.5": 126, "4,6": 127, "5,6": 128, "5.5,6.5": 129,
+    "6,6": 130, "7,6": 131, "7.5,6.5": 132, "8,6": 133, "9,6": 134,
+    "10,6": 135, "9.5,6.5": 136, "10,7": 137, "9,7": 138, "8.5,7.5": 139,
+    "8,7": 140, "7,7": 141, "6.5,7.5": 142, "6,7": 143, "5,7": 144,
+    "4.5,7.5": 145, "4,7": 146, "3,7": 147, "2.5,7.5": 148, "2,7": 149,
+    "1,7": 150, "0,7": 151, "0.5,7.5": 152, "0,8": 153, "1,8": 154,
+    "1.5,8.5": 155, "2,8": 156, "3,8": 157, "3.5,8.5": 158, "4,8": 159,
+    "5,8": 160, "5.5,8.5": 161, "6,8": 162, "7,8": 163, "7.5,8.5": 164,
+    "8,8": 165, "9,8": 166, "10,8": 167, "9.5,8.5": 168, "10,9": 169,
+    "9,9": 170, "8.5,9.5": 171, "8,9": 172, "7,9": 173, "6.5,9.5": 174,
+    "6,9": 175, "5,9": 176, "4.5,9.5": 177, "4,9": 178, "3,9": 179,
+    "2.5,9.5": 180, "2,9": 181, "1,9": 182, "0,9": 183, "0.5,9.5": 184,
+    "0,10": 185, "1,10": 186, "1.5,10.5": 187, "2,10": 188, "3,10": 189,
+    "3.5,10.5": 190, "4,10": 191, "5,10": 192, "5.5,10.5": 193, "6,10": 194,
+    "7,10": 195, "7.5,10.5": 196, "8,10": 197, "9,10": 198, "10,10": 199,
+    "9.5,10.5": 200, "10,11": 201, "9,11": 202, "8.5,11.5": 203, "8,11": 204,
+    "7,11": 205, "6.5,11.5": 206, "6,11": 207, "5,11": 208, "4.5,11.5": 209,
+    "4,11": 210, "3,11": 211, "2.5,11.5": 212, "2,11": 213, "1,11": 214,
+    "0,11": 215, "0.5,11.5": 216, "0,12": 217, "1,12": 218, "2,12": 219,
+    "3,12": 220, "4,12": 221, "5,12": 222, "6,12": 223, "7,12": 224,
+    "8,12": 225, "9,12": 226, "10,12": 227, "10,13": 228, "9,13": 229,
+    "8,13": 230, "7,13": 231, "6,13": 232, "5,13": 233, "4,13": 234,
+    "3,13": 235, "2,13": 236, "1,13": 237, "0,13": 238, "0,14": 239,
+    "1,14": 240, "2,14": 241, "3,14": 242, "4,14": 243, "5,14": 244,
+    "6,14": 245, "7,14": 246, "8,14": 247, "9,14": 248, "10,14": 249
 }
 
-# Priority order when two holds share one LED (higher index = higher priority)
-COLOR_PRIORITY = {"blue": 0, "yellow": 1, "green": 2, "red": 3}
+LED_STRIP_TOTAL = 250
+BRIGHTNESS = 0.3
+
+COLORS: Dict[str, tuple] = {
+    "green": (0, 255, 0),
+    "blue": (0, 0, 255),
+    "yellow": (255, 255, 0),
+    "red": (255, 0, 0),
+}
 
 # ─────────────────────────────────────────────────────────────
-#  Snake LED layout
-# ─────────────────────────────────────────────────────────────
-
-def _build_led_positions() -> List[tuple]:
-    """Return a list of (board_x, board_y) for each LED index 0-49.
-
-    The snake starts at the bottom-left and alternates direction each row:
-      even rows → left to right
-      odd  rows → right to left
-    """
-    num_rows = LED_COUNT // LEDS_PER_ROW          # 10 rows
-    y_step   = BOARD_Y_MAX / (num_rows - 1)       # spacing between LED rows
-    x_step   = BOARD_X_MAX / (LEDS_PER_ROW - 1)  # spacing between LEDs in a row
-
-    positions = []
-    for row in range(num_rows):
-        board_y = row * y_step
-        xs = [col * x_step for col in range(LEDS_PER_ROW)]
-        if row % 2 == 1:          # odd rows run right → left
-            xs = list(reversed(xs))
-        for bx in xs:
-            positions.append((bx, board_y))
-
-    return positions
-
-
-_LED_POSITIONS: List[tuple] = _build_led_positions()
-
-
-def _nearest_led(hold_x: float, hold_y: float) -> int:
-    """Return the LED index whose physical position is closest to (hold_x, hold_y)."""
-    best_idx  = 0
-    best_dist = float("inf")
-    for i, (lx, ly) in enumerate(_LED_POSITIONS):
-        dist = (lx - hold_x) ** 2 + (ly - hold_y) ** 2
-        if dist < best_dist:
-            best_dist = dist
-            best_idx  = i
-    return best_idx
-
-
-# ─────────────────────────────────────────────────────────────
-#  Initialisation
+# Logic
 # ─────────────────────────────────────────────────────────────
 
 def _init_strip():
-    """Initialise the NeoPixel strip.  No-op when not on a Pi."""
-    global _pixels, LED_PIN
-
+    global _pixels
     if not _HW_AVAILABLE:
         return False
-
     try:
-        LED_PIN = board.D18
         _pixels = _neopixel.NeoPixel(
-            LED_PIN, LED_COUNT,
+            board.D18,
+            LED_STRIP_TOTAL,
             brightness=BRIGHTNESS,
             auto_write=False,
-            pixel_order=_neopixel.GRB,
+            pixel_order=_neopixel.RGB,
         )
         return True
     except Exception as e:
         print(f"[LED] init failed: {e}")
-        _pixels = None
         return False
 
-
-# Run on import so the strip is ready when the first request arrives
 _init_strip()
 
-
 # ─────────────────────────────────────────────────────────────
-#  Public API
+# API
 # ─────────────────────────────────────────────────────────────
 
 def is_available() -> bool:
     return _HW_AVAILABLE and _pixels is not None
 
-
 def clear() -> bool:
-    """Turn all LEDs off."""
     if not is_available():
         return False
-    try:
-        _pixels.fill((0, 0, 0))
-        _pixels.show()
-        return True
-    except Exception as e:
-        print(f"[LED] clear failed: {e}")
-        return False
-
+    _pixels.fill((0, 0, 0))
+    _pixels.show()
+    return True
 
 def display_holds(holds: List[Dict[str, Any]]) -> int:
-    """Light the LEDs that best represent the given holds.
+    """Updates the physical strip based on provided holds."""
+    if not is_available():
+        print(f"[LED] Simulated display update for {len(holds)} holds.")
+        return len(holds)
 
-    Multiple holds can map to the same LED — the highest-priority color wins
-    (green/red > yellow > blue).
-
-    Args:
-        holds: list of dicts with keys x (float), y (float), color (str).
-
-    Returns:
-        Number of unique LEDs lit (0 when hardware not available).
-    """
-    # Build a map: led_index → best color for that LED
-    led_colors: Dict[int, str] = {}
+    _pixels.fill((0, 0, 0))
+    count = 0
 
     for hold in holds:
-        x     = hold.get("x")
-        y     = hold.get("y")
+        # Convert values to strings to match the COORD_TO_LED keys accurately
+        x = hold.get("x")
+        y = hold.get("y")
         color = hold.get("color", "blue")
 
-        if x is None or y is None:
-            continue
+        # Format key as "x,y" (e.g., "1.5,0.5" or "10,14")
+        # Removing .0 from floats to keep keys clean (10.0 -> 10)
+        x_str = f"{x:g}" if isinstance(x, (int, float)) else str(x)
+        y_str = f"{y:g}" if isinstance(y, (int, float)) else str(y)
+        coord_key = f"{x_str},{y_str}"
 
-        led_idx  = _nearest_led(float(x), float(y))
-        priority = COLOR_PRIORITY.get(color, 0)
+        strip_idx = COORD_TO_LED.get(coord_key)
+        
+        if strip_idx is not None:
+            _pixels[strip_idx] = COLORS.get(color, (255, 255, 255))
+            count += 1
 
-        existing = led_colors.get(led_idx)
-        if existing is None or COLOR_PRIORITY.get(existing, 0) < priority:
-            led_colors[led_idx] = color
-
-    if not is_available():
-        # Simulate — log what would light up
-        print(f"[LED] simulated: {len(led_colors)} LEDs → {led_colors}")
-        return len(led_colors)
-
-    try:
-        _pixels.fill((0, 0, 0))          # clear first
-        for led_idx, color in led_colors.items():
-            _pixels[led_idx] = COLORS.get(color, (255, 255, 255))
-        _pixels.show()
-        return len(led_colors)
-    except Exception as e:
-        print(f"[LED] display_holds failed: {e}")
-        return 0
-
-
-def test_pattern() -> bool:
-    """Rainbow chase across all 50 LEDs — useful for wiring verification."""
-    if not is_available():
-        print("[LED] test_pattern: hardware not available")
-        return False
-
-    import time
-    chase_colors = [
-        COLORS["green"],
-        COLORS["blue"],
-        COLORS["yellow"],
-        COLORS["red"],
-    ]
-    try:
-        for i in range(LED_COUNT):
-            _pixels[i] = chase_colors[i % len(chase_colors)]
-            _pixels.show()
-            time.sleep(0.05)
-        time.sleep(1)
-        _pixels.fill((0, 0, 0))
-        _pixels.show()
-        return True
-    except Exception as e:
-        print(f"[LED] test_pattern failed: {e}")
-        return False
+    _pixels.show()
+    return count

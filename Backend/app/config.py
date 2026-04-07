@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     supabase_url: str
     supabase_anon_key: str
     supabase_service_key: str
+    supabase_jwt_secret: str
     
     # Server
     host: str = "0.0.0.0"

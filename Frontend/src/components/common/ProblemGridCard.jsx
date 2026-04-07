@@ -16,7 +16,7 @@ const ProblemGridCard = ({
   onOpen
 }) => (
   <div
-    className="relative mb-6 break-inside-avoid rounded-2xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow duration-200 cursor-pointer"
+    className="relative rounded-2xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow duration-200 cursor-pointer"
     onClick={onOpen}
   >
     <div className="relative bg-neutral-900">
