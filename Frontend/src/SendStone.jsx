@@ -547,15 +547,15 @@ export default function ClimbingBoardApp() {
   };
 
   const handleSignOut = async () => {
-    try {
-      await supabase.auth.signOut();
-      // The auth state change listener will handle clearing user state
-    } catch (error) {
-      console.error('Error signing out:', error);
-      // Fallback: clear manually if Supabase fails
-      setUser(null);
-      setActiveTab('home');
-    }
+    // Clear local state immediately — don't wait for Supabase network call
+    hasActiveLoginSessionRef.current = false;
+    clearCurrentSessionCounted();
+    setUser(null);
+    setSavedProblems([]);
+    setLikedProblems([]);
+    setActiveTab('home');
+    // Fire-and-forget the server-side invalidation — if it fails the user is still logged out locally
+    supabase.auth.signOut().catch(() => {});
   };
 
   const handleUpdateProfilePhoto = async (file) => {
