@@ -212,11 +212,18 @@ def predict_grade(holds: List[Dict], angle: float) -> Dict:
         
         raw = float(result[0][0][0])
         rounded = int(max(0, min(16, round(raw))))
-        
+
+        # Build path: ordered non-foot holds then foot holds, excluding yellow
+        path_non_foot = [h for h in ordered if h['role'] != COLOR_TO_ROLE['yellow']]
+        path_foot     = [h for h in ordered if h['role'] == COLOR_TO_ROLE['yellow']]
+        path_out = [{'x': h['ui_x'], 'y': h['ui_y'], 'color': h['color']}
+                    for h in path_non_foot + path_foot]
+
         return {
             'suggested_grade': f'v{rounded}',
             'raw': round(raw, 2),
-            'confidence': 0.85  # Could calculate from model uncertainty
+            'confidence': 0.85,
+            'path': path_out,
         }
         
     except Exception as e:

@@ -125,7 +125,7 @@ const SavedPage = ({ savedProblems = [], onSend, onSave, likedIds = new Set(), o
             No saved problems match your filters.
           </div>
         ) : (
-          <div className="columns-2 md:columns-3 lg:columns-4 gap-4 md:gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
             {filtered.map((p) => (
               <ProblemGridCard
                 key={p.id}

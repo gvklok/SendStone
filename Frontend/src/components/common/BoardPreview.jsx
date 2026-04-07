@@ -52,12 +52,14 @@ const COLOR_STYLES = {
 
 /**
  * Read-only board preview that renders hold rings at exact positions.
- * 
+ *
  * Props:
- *   holds   — array of { x, y, color } (grid coords + color name)
+ *   holds     — array of { x, y, color } (grid coords + color name)
+ *   path      — optional ordered array of { x, y, color } from ML prediction
+ *   showPath  — whether to draw the path lines/numbers (default false)
  *   className — extra classes on the outer wrapper
  */
-const BoardPreview = ({ holds = [], className = '' }) => {
+const BoardPreview = ({ holds = [], path = [], showPath = false, className = '' }) => {
   const frameRef = useRef(null);
   const [scale, setScale] = useState(0);
 
@@ -81,6 +83,16 @@ const BoardPreview = ({ holds = [], className = '' }) => {
     })
     .filter(Boolean);
 
+  // Resolve path holds to pixel centres
+  const resolvedPath = (showPath && path.length > 1)
+    ? path
+        .map(h => {
+          const pos = HOLD_MAP.get(`${h.x},${h.y}`);
+          return pos ? { cx: pos.cx, cy: pos.cy, color: h.color } : null;
+        })
+        .filter(Boolean)
+    : [];
+
   return (
     <div
       ref={frameRef}
@@ -94,6 +106,48 @@ const BoardPreview = ({ holds = [], className = '' }) => {
         style={{ width: '100%', height: '100%' }}
         draggable="false"
       />
+
+      {/* Path overlay — SVG lines + step numbers */}
+      {scale > 0 && resolvedPath.length > 1 && (
+        <svg
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
+          viewBox={`0 0 ${BOARD_W} ${BOARD_H}`}
+          preserveAspectRatio="none"
+        >
+          {resolvedPath.slice(0, -1).map((pt, i) => {
+            const next = resolvedPath[i + 1];
+            const dx = next.cx - pt.cx;
+            const dy = next.cy - pt.cy;
+            const len = Math.sqrt(dx * dx + dy * dy) || 1;
+            const pad = 32;
+            const x1 = pt.cx + (dx / len) * pad;
+            const y1 = pt.cy + (dy / len) * pad;
+            const x2 = next.cx - (dx / len) * pad;
+            const y2 = next.cy - (dy / len) * pad;
+            return (
+              <line key={i} x1={x1} y1={y1} x2={x2} y2={y2}
+                stroke="#F5A623" strokeWidth="5" strokeLinecap="round" strokeDasharray="14 8" />
+            );
+          })}
+          {/* Step number badges — filled with the hold's own color */}
+          {resolvedPath.map((pt, i) => {
+            const fill = COLOR_STYLES[pt.color] || COLOR_STYLES.blue;
+            return (
+              <g key={`n${i}`}>
+                <circle cx={pt.cx} cy={pt.cy} r="13" fill={fill} />
+                <text
+                  x={pt.cx} y={pt.cy}
+                  textAnchor="middle" dominantBaseline="central"
+                  fontSize="14" fontWeight="bold" fill="white"
+                  fontFamily="sans-serif"
+                >
+                  {i + 1}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      )}
 
       {scale > 0 && resolved.map((h) => {
         const d = h.r * 2 * scale;

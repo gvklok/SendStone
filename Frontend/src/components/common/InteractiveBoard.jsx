@@ -54,7 +54,7 @@ const COLOR_STYLES = {
   red:    { border: 'rgb(239,68,68)',      shadow: 'rgba(239,68,68,0.5)',   hoverShadow: 'rgba(239,68,68,0.7)' },
 };
 
-const InteractiveBoard = ({ onHoldsChange, initialHolds }) => {
+const InteractiveBoard = ({ onHoldsChange, initialHolds, path = [], showPath = false, onClear }) => {
   // selectedRoute: array of { x, y, color }
   const [selectedRoute, setSelectedRoute] = useState(() =>
     initialHolds ? initialHolds.map(h => ({ x: h.x, y: h.y, color: h.color })) : []
@@ -131,7 +131,7 @@ const InteractiveBoard = ({ onHoldsChange, initialHolds }) => {
     });
   }, []);
 
-  const clearRoute = () => setSelectedRoute([]);
+  const clearRoute = () => { setSelectedRoute([]); onClear?.(); };
 
   const getHoldColor = (hx, hy) => {
     const entry = selectedRoute.find(r => r.x === hx && r.y === hy);
@@ -178,6 +178,49 @@ const InteractiveBoard = ({ onHoldsChange, initialHolds }) => {
           style={{ width: '100%', height: '100%' }}
           draggable="false"
         />
+
+        {/* Path overlay — dashed arrows + step numbers from AI prediction */}
+        {showPath && path.length > 1 && (() => {
+          const pts = path
+            .map(h => { const pos = ALL_HOLDS.find(a => a.x === h.x && a.y === h.y); return pos ? { ...pos, color: h.color } : null; })
+            .filter(Boolean);
+          if (pts.length < 2) return null;
+          return (
+            <svg
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 10 }}
+              viewBox={`0 0 ${BOARD_W} ${BOARD_H}`}
+              preserveAspectRatio="none"
+            >
+              {pts.slice(0, -1).map((pt, i) => {
+                const next = pts[i + 1];
+                const dx = next.cx - pt.cx;
+                const dy = next.cy - pt.cy;
+                const len = Math.sqrt(dx * dx + dy * dy) || 1;
+                const pad = 32;
+                const x1 = pt.cx + (dx / len) * pad;
+                const y1 = pt.cy + (dy / len) * pad;
+                const x2 = next.cx - (dx / len) * pad;
+                const y2 = next.cy - (dy / len) * pad;
+                return (
+                  <line key={i} x1={x1} y1={y1} x2={x2} y2={y2}
+                    stroke="#F5A623" strokeWidth="5" strokeLinecap="round" strokeDasharray="14 8" />
+                );
+              })}
+              {pts.map((pt, i) => {
+                const fill = COLOR_STYLES[pt.color]?.border || COLOR_STYLES.blue.border;
+                return (
+                  <g key={`n${i}`}>
+                    <circle cx={pt.cx} cy={pt.cy} r="13" fill={fill} />
+                    <text x={pt.cx} y={pt.cy} textAnchor="middle" dominantBaseline="central"
+                      fontSize="14" fontWeight="bold" fill="white" fontFamily="sans-serif">
+                      {i + 1}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          );
+        })()}
 
         {/* Hold buttons — pixel positions scaled from 800×1200 reference */}
         {ALL_HOLDS.map((h) => {
@@ -239,30 +282,6 @@ const InteractiveBoard = ({ onHoldsChange, initialHolds }) => {
           );
         })}
       </div>
-
-      {/* Hold list */}
-      {selectedRoute.length > 0 && (
-        <div className="p-3 bg-gray-800 rounded border border-gray-700 max-h-48 overflow-y-auto">
-          <div className="font-bold text-xs text-cyan-400 mb-1 uppercase tracking-wider">
-            Route · {selectedRoute.length} holds
-          </div>
-          {[...selectedRoute]
-            .sort((a, b) => b.y - a.y || a.x - b.x)
-            .map((r, i) => (
-              <div
-                key={`${r.x}-${r.y}`}
-                className="flex items-center gap-2 px-2 py-1 text-xs font-mono rounded mb-0.5"
-                style={{
-                  background: '#0d1b36',
-                  borderLeft: `3px solid ${COLOR_STYLES[r.color].border}`,
-                }}
-              >
-                <span className="text-gray-300">({r.x}, {r.y})</span>
-                <span className="text-gray-500 ml-auto">{COLOR_LABELS[r.color]}</span>
-              </div>
-            ))}
-        </div>
-      )}
 
       {/* Summary counts */}
       <div className="sendstone-click-holds-summary grid grid-cols-4 gap-2">

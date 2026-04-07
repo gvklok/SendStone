@@ -37,6 +37,7 @@ class PredictResponse(BaseModel):
     suggested_grade: str
     confidence: float = 0.0
     raw: float = 0.0
+    path: list = []
 
 
 # =============================================================================
@@ -74,5 +75,6 @@ async def predict_grade(request: PredictRequest, http_request: Request):
     return PredictResponse(
         suggested_grade=result['suggested_grade'],
         confidence=result['confidence'],
-        raw=result.get('raw', 0.0)
+        raw=result.get('raw', 0.0),
+        path=result.get('path', []),
     )

@@ -430,7 +430,7 @@ const ExplorePage = ({ onSave, onSend, savedIds = new Set(), likedIds = new Set(
             {loading && (
               <div className="absolute inset-0 bg-neutral-100/70 z-10 rounded-xl pointer-events-none" />
             )}
-            <div className="columns-2 md:columns-3 lg:columns-4 gap-4 md:gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
               {filteredRoutes.map(({ id, grade, sends, name, holds, authorUsername }) => (
                 <ProblemGridCard
                   key={id}
