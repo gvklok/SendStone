@@ -16,7 +16,7 @@ const ProblemGridCard = ({
   onOpen
 }) => (
   <div
-    className="relative mb-6 break-inside-avoid rounded-2xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow duration-200 cursor-pointer"
+    className="relative rounded-2xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow duration-200 cursor-pointer"
     onClick={onOpen}
   >
     <div className="relative bg-neutral-900">
@@ -33,7 +33,7 @@ const ProblemGridCard = ({
           aria-label="Log ascent"
           title="Log ascent"
         >
-          <Mountain size={16} strokeWidth={2.25} className="opacity-90" />
+          <Mountain size={20} strokeWidth={2.25} className="opacity-90" />
         </button>
         <button
           onClick={(e) => {
@@ -46,7 +46,7 @@ const ProblemGridCard = ({
           aria-label="Save problem"
           title="Save problem"
         >
-          <Bookmark size={16} strokeWidth={2.25} className="opacity-90" />
+          <Bookmark size={20} strokeWidth={2.25} className="opacity-90" />
         </button>
       </div>
     </div>

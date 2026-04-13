@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { User } from 'lucide-react';
 
+const API_BASE = process.env.REACT_APP_API_URL;
+
 const ProfilePage = ({
   user,
   onSignOut,
@@ -23,6 +25,11 @@ const ProfilePage = ({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportText, setReportText] = useState('');
+  const [reportSending, setReportSending] = useState(false);
+  const [reportConfirm, setReportConfirm] = useState(false);
 
   useEffect(() => {
     setEmailDraft(user?.email || '');
@@ -83,6 +90,24 @@ const ProfilePage = ({
     if (!result?.ok) {
       setFeedback({ ok: false, text: result?.error || 'Failed to delete account.' });
     }
+  };
+
+  const handleSendReport = async () => {
+    if (!reportText.trim()) return;
+    setReportSending(true);
+    try {
+      await fetch(`${API_BASE}/report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: reportText.trim(), user_email: user?.email || 'not provided' }),
+      });
+    } catch {
+      // best-effort
+    }
+    setReportSending(false);
+    setReportOpen(false);
+    setReportText('');
+    setReportConfirm(true);
   };
 
   return (
@@ -218,6 +243,16 @@ const ProfilePage = ({
           {message && <div className="text-sm font-semibold text-green-700">{message}</div>}
           {error && <div className="text-sm font-semibold text-red-700">{error}</div>}
 
+          <div className="bg-white border-2 border-gray-200 rounded-lg p-4">
+            <p className="text-sm font-black uppercase tracking-wider text-gray-800 mb-2 text-center">Notice a problem?</p>
+            <button
+              onClick={() => setReportOpen(true)}
+              className="w-full px-4 py-2 bg-blue-600 text-white font-bold rounded-md hover:bg-blue-700 transition-colors"
+            >
+              Report
+            </button>
+          </div>
+
           <button
             onClick={onSignOut}
             disabled={busy}
@@ -235,6 +270,53 @@ const ProfilePage = ({
           </button>
         </div>
       </div>
+
+      {/* Report modal */}
+      {reportOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white border-2 border-gray-900 w-full max-w-md p-6 flex flex-col gap-4">
+            <p className="text-lg font-black uppercase tracking-wider text-gray-900 text-center">Notice a Problem?</p>
+            <textarea
+              value={reportText}
+              onChange={(e) => setReportText(e.target.value)}
+              disabled={reportSending}
+              rows={5}
+              placeholder="Describe the issue..."
+              className="border-2 border-gray-300 rounded-md px-3 py-2 font-semibold resize-none"
+            />
+            <button
+              onClick={handleSendReport}
+              disabled={reportSending || !reportText.trim()}
+              className="w-full px-4 py-3 bg-blue-600 text-white font-black uppercase tracking-widest hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {reportSending ? 'Sending...' : 'Send Email'}
+            </button>
+            <button
+              onClick={() => { setReportOpen(false); setReportText(''); }}
+              disabled={reportSending}
+              className="w-full px-4 py-2 bg-white border-2 border-gray-300 text-gray-700 font-bold hover:bg-gray-100 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation modal */}
+      {reportConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white border-2 border-gray-900 w-full max-w-sm p-6 flex flex-col gap-4 text-center">
+            <p className="text-lg font-black uppercase tracking-wider text-gray-900">Your report has been sent</p>
+            <p className="text-sm text-gray-600 font-semibold">Thank you for letting us know.</p>
+            <button
+              onClick={() => setReportConfirm(false)}
+              className="w-full px-4 py-3 bg-blue-600 text-white font-black uppercase tracking-widest hover:bg-blue-700 transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

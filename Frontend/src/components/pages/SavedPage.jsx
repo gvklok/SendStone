@@ -3,7 +3,7 @@ import { Search, ChevronDown } from 'lucide-react';
 import ProblemGridCard from '../common/ProblemGridCard';
 import FullscreenPost from './partials/FullscreenPost';
 
-const SavedPage = ({ savedProblems = [], onSend, onSave, likedIds = new Set(), onOpenPost }) => {
+const SavedPage = ({ savedProblems = [], onSend, onSave, likedIds = new Set(), onOpenPost, onRemix }) => {
   const [searchInput, setSearchInput] = useState('');
   const [activeSearch, setActiveSearch] = useState('');
   const [difficultyFilter, setDifficultyFilter] = useState('');
@@ -125,35 +125,31 @@ const SavedPage = ({ savedProblems = [], onSend, onSave, likedIds = new Set(), o
             No saved problems match your filters.
           </div>
         ) : (
-          <div className="columns-2 md:columns-3 lg:columns-4 gap-4 md:gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
             {filtered.map((p) => (
-              <div
+              <ProblemGridCard
                 key={p.id}
-                onClick={() => {
+                id={p.id}
+                grade={p.grade}
+                name={p.name}
+                sends={p.sends || 0}
+                holds={p.holds}
+                authorUsername={p.authorUsername}
+                liked={likedIds.has(p.id) || likedIds.has(String(p.id))}
+                saved
+                onOpen={() => {
                   setOpenPost(p);
                   onOpenPost?.(p);
                 }}
-                className="cursor-pointer"
-              >
-                <ProblemGridCard
-                  id={p.id}
-                  grade={p.grade}
-                  name={p.name}
-                  sends={p.sends || 0}
-                  holds={p.holds}
-                  authorUsername={p.authorUsername}
-                  liked={likedIds.has(p.id) || likedIds.has(String(p.id))}
-                  saved
-                  onBookmark={(e) => {
-                    e?.stopPropagation?.();
-                    onSave?.(p.id);
-                  }}
-                  onHeart={(e) => {
-                    e?.stopPropagation?.();
-                    onSend?.(p.id);
-                  }}
-                />
-              </div>
+                onBookmark={(e) => {
+                  e?.stopPropagation?.();
+                  onSave?.(p.id);
+                }}
+                onHeart={(e) => {
+                  e?.stopPropagation?.();
+                  onSend?.(p.id);
+                }}
+              />
             ))}
           </div>
         )}
@@ -163,8 +159,9 @@ const SavedPage = ({ savedProblems = [], onSend, onSave, likedIds = new Set(), o
         <FullscreenPost
           post={openPost}
           onClose={() => setOpenPost(null)}
-          onSave={() => onSave?.(openPost.id)}
+          onSave={() => onSave?.(openPost.id, openPost)}
           onSend={() => onSend?.(openPost.id)}
+          onRemix={() => { onRemix?.(openPost); setOpenPost(null); }}
           liked={likedIds.has(openPost.id)}
           saved
         />

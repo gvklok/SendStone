@@ -62,6 +62,16 @@ _scalers: Optional[dict] = None
 _session: Optional[ort.InferenceSession] = None
 _initialized = False
 
+# Cached functions extracted from sendit_app module (loaded once at startup)
+_get_rating = None
+_infer_path = None
+_extract_hold_features = None
+_extract_global_spacing = None
+_extract_movement_features = None
+_extract_interaction_features = None
+_build_cnn_grid = None
+_vectorize = None
+
 
 def is_available() -> bool:
     """Check if ML prediction is available."""
@@ -71,28 +81,47 @@ def is_available() -> bool:
 def initialize():
     """Load model, scalers, and ratings. Call once at startup."""
     global _ratings, _scalers, _session, _initialized
-    
+    global _get_rating, _infer_path, _extract_hold_features, _extract_global_spacing
+    global _extract_movement_features, _extract_interaction_features, _build_cnn_grid, _vectorize
+
     if _initialized:
         return True
-    
+
     if not is_available():
         print("⚠️  ML prediction not available (missing dependencies or model files)")
         return False
-    
+
     try:
         # Load ratings
         _ratings = _load_ratings()
         print(f"✓ Hold ratings loaded ({len(_ratings)} entries)")
-        
+
         # Load scalers
         with open(SCALERS_PATH, 'rb') as f:
             _scalers = pickle.load(f)
         print("✓ Scalers loaded")
-        
+
         # Load ONNX model
         _session = ort.InferenceSession(ONNX_PATH, providers=['CPUExecutionProvider'])
         print(f"✓ ONNX session ready")
-        
+
+        # Load sendit-api module ONCE and extract functions
+        spec = importlib.util.spec_from_file_location("sendit_app_module", os.path.join(SENDIT_API_DIR, 'app.py'))
+        sendit_app = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(sendit_app)
+        sendit_app._ratings = _ratings
+        sendit_app._scalers = _scalers
+        sendit_app._session = _session
+        _get_rating = sendit_app._get_rating
+        _infer_path = sendit_app._infer_path
+        _extract_hold_features = sendit_app._extract_hold_features
+        _extract_global_spacing = sendit_app._extract_global_spacing
+        _extract_movement_features = sendit_app._extract_movement_features
+        _extract_interaction_features = sendit_app._extract_interaction_features
+        _build_cnn_grid = sendit_app._build_cnn_grid
+        _vectorize = sendit_app._vectorize
+        print("✓ sendit-api module loaded")
+
         _initialized = True
         return True
     except Exception as e:
@@ -117,25 +146,6 @@ def predict_grade(holds: List[Dict], angle: float) -> Dict:
             return _fallback_prediction(holds, angle)
     
     try:
-        # Load sendit-api app module dynamically
-        spec = importlib.util.spec_from_file_location("sendit_app_module", os.path.join(SENDIT_API_DIR, 'app.py'))
-        sendit_app = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(sendit_app)
-        
-        # Share our loaded globals with the sendit_app module
-        sendit_app._ratings = _ratings
-        sendit_app._scalers = _scalers
-        sendit_app._session = _session
-        
-        # Now we can use its functions
-        _get_rating = sendit_app._get_rating
-        _infer_path = sendit_app._infer_path
-        _extract_hold_features = sendit_app._extract_hold_features
-        _extract_global_spacing = sendit_app._extract_global_spacing
-        _extract_movement_features = sendit_app._extract_movement_features
-        _extract_interaction_features = sendit_app._extract_interaction_features
-        _build_cnn_grid = sendit_app._build_cnn_grid
-        _vectorize = sendit_app._vectorize
         
         # Convert holds to internal format
         internal_holds = []
@@ -202,11 +212,18 @@ def predict_grade(holds: List[Dict], angle: float) -> Dict:
         
         raw = float(result[0][0][0])
         rounded = int(max(0, min(16, round(raw))))
-        
+
+        # Build path: ordered non-foot holds then foot holds, excluding yellow
+        path_non_foot = [h for h in ordered if h['role'] != COLOR_TO_ROLE['yellow']]
+        path_foot     = [h for h in ordered if h['role'] == COLOR_TO_ROLE['yellow']]
+        path_out = [{'x': h['ui_x'], 'y': h['ui_y'], 'color': h['color']}
+                    for h in path_non_foot + path_foot]
+
         return {
             'suggested_grade': f'v{rounded}',
             'raw': round(raw, 2),
-            'confidence': 0.85  # Could calculate from model uncertainty
+            'confidence': 0.85,
+            'path': path_out,
         }
         
     except Exception as e:
